@@ -99,7 +99,8 @@ struct LoginView: View {
         .padding()
         .sheet(isPresented: $showWeb) {
             NavigationStack {
-                VKAuthWeb { token in showWeb = false; submit(token) }
+                VKAuthWeb(onToken: { token in showWeb = false; submit(token) },
+                          onError: { msg in showWeb = false; error = msg })
                     .ignoresSafeArea(edges: .bottom)
                     .navigationTitle("Вход VK").navigationBarTitleDisplayMode(.inline)
                     .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Отмена") { showWeb = false } } }

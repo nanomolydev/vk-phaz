@@ -16,6 +16,11 @@ jobs:
           sudo xcode-select -s "$XC/Contents/Developer"
           xcodebuild -version
 
+      - name: Check OAuth redirect parser
+        run: |
+          swiftc -O App/Sources/VKRedirect.swift Tools/VKRedirectCheck.swift -o /tmp/vkcheck
+          /tmp/vkcheck
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
