@@ -35,6 +35,25 @@ enum VKRedirectCheck {
         expect("https://oauth.vk.com/blank.html", nil, "bare redirect page")
         expect("https://id.vk.com/auth", nil, "login page")
 
-        print("VKRedirect: all checks passed")
+        versionChecks()
+        print("VKRedirect + Version: all checks passed")
+    }
+
+    static func expectVersion(_ new: String, _ cur: String, _ want: Bool) {
+        let got = Version.isNewer(new, than: cur)
+        guard got == want else {
+            FileHandle.standardError.write("FAIL isNewer(\(new), than: \(cur)) = \(got), want \(want)\n".data(using: .utf8)!)
+            exit(1)
+        }
+    }
+
+    static func versionChecks() {
+        expectVersion("1.0.12", "1.0.9", true)    // the one string compare gets wrong
+        expectVersion("1.0.9", "1.0.12", false)
+        expectVersion("1.0.1", "1.0.1", false)    // same build: no nagging
+        expectVersion("1.1", "1.0.7", true)
+        expectVersion("1.0", "1.0.0", false)      // missing components are zeros
+        expectVersion("2.0", "1.9.9", true)
+        expectVersion("v1.0.3", "1.0.2", true)    // stray tag prefix survives
     }
 }

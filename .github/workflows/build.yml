@@ -3,11 +3,17 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+
+      - name: Version from run number
+        run: echo "VERSION=1.0.${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Select Xcode 26 (iOS 26 SDK, Liquid Glass)
         run: |
@@ -16,10 +22,23 @@ jobs:
           sudo xcode-select -s "$XC/Contents/Developer"
           xcodebuild -version
 
-      - name: Check OAuth redirect parser
+      - name: Check OAuth redirect + version compare
         run: |
-          swiftc -O App/Sources/VKRedirect.swift Tools/VKRedirectCheck.swift -o /tmp/vkcheck
+          swiftc -O App/Sources/VKRedirect.swift App/Sources/Version.swift \
+                 Tools/VKRedirectCheck.swift -o /tmp/vkcheck
           /tmp/vkcheck
+
+      # llama.cpp's C++ sources and swift-syntax are ~10 min from scratch and
+      # almost never change. Restoring DerivedData lets xcodebuild reuse them
+      # and recompile only what actually changed.
+      - name: Cache DerivedData
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: dd-${{ runner.os }}-xc26-${{ hashFiles('project.yml') }}-${{ github.sha }}
+          restore-keys: |
+            dd-${{ runner.os }}-xc26-${{ hashFiles('project.yml') }}-
+            dd-${{ runner.os }}-xc26-
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -36,11 +55,15 @@ jobs:
             -sdk iphoneos \
             -derivedDataPath build \
             -skipMacroValidation -skipPackagePluginValidation \
+            MARKETING_VERSION=$VERSION \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            DEBUG_INFORMATION_FORMAT=dwarf \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 
       - name: Package IPA
         run: |
-          mkdir -p Payload
+          rm -rf Payload && mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/VKPhaz.app Payload/
           zip -qr VKPhaz.ipa Payload
 
@@ -48,3 +71,13 @@ jobs:
         with:
           name: VKPhaz-ipa
           path: VKPhaz.ipa
+
+      # The in-app updater reads releases/latest, so main must publish one.
+      - name: Publish release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VERSION" VKPhaz.ipa \
+            --title "v$VERSION" \
+            --notes "$(git log -1 --pretty=%s)"

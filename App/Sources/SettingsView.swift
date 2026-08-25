@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     let vk: VK
     @EnvironmentObject var store: AccountStore
+    @StateObject private var updater = Updater.shared
     @State private var showAdd = false
 
     var body: some View {
@@ -40,6 +41,16 @@ struct SettingsView: View {
                     NavigationLink { WallpaperSettings() } label: { row("Обои чатов", "photo.fill", .teal) }
                     NavigationLink { NotificationSettings() } label: { row("Уведомления", "bell.fill", .red) }
                     NavigationLink { AISettings() } label: { row("Нейросеть", "sparkles", .purple) }
+                    NavigationLink { UpdateSettings() } label: {
+                        HStack {
+                            row("Обновление", "arrow.down.circle.fill", .green)
+                            if updater.latest != nil {
+                                Spacer()
+                                Text("1").font(.caption2.bold()).foregroundStyle(.white)
+                                    .padding(6).background(.red, in: Circle())
+                            }
+                        }
+                    }
                 }
 
                 Section {
@@ -49,6 +60,7 @@ struct SettingsView: View {
             }
             .navigationTitle("Настройки")
             .sheet(isPresented: $showAdd) { LoginView { try await store.addAccount(token: $0) } }
+            .task { if !updater.checkedOnce { await updater.check() } }
         }
     }
 
