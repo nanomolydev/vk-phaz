@@ -65,11 +65,14 @@ final class Updater: ObservableObject {
             if let page = rel.page { UIApplication.shared.open(page) }
             return
         }
-        // AltStore/SideStore install the ipa straight from a URL. If neither is
-        // installed the scheme won't open, so fall through to a plain download.
-        let encoded = ipa.absoluteString.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ipa.absoluteString
-        let handoffs = ["altstore://install?url=\(encoded)",
-                        "sidestore://install?url=\(encoded)"].compactMap(URL.init(string:))
+        // These installers all take the ipa URL raw (that's the documented form —
+        // percent-encoding the whole thing makes them choke). Whichever is
+        // installed answers first; if none is, the ipa just downloads.
+        // LiveContainer leads because that's what this app is run under.
+        let raw = ipa.absoluteString
+        let handoffs = ["livecontainer://install?url=\(raw)",
+                        "altstore://install?url=\(raw)",
+                        "sidestore://install?url=\(raw)"].compactMap(URL.init(string:))
         open(handoffs, fallback: ipa)
     }
 
@@ -122,7 +125,7 @@ struct UpdateSettings: View {
             }
 
             Section {
-                Text("Обновление ставится тем же способом, что и само приложение — AltStore/SideStore подхватят .ipa сами, иначе файл просто скачается.")
+                Text("Кнопка отдаёт .ipa установщику: LiveContainer, AltStore или SideStore — что стоит, то и подхватит. Если ни один не ответит, файл просто скачается.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
         }
