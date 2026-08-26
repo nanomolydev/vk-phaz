@@ -22,7 +22,9 @@ final class Updater: ObservableObject {
     @Published private(set) var error: String?
     @Published private(set) var checkedOnce = false
 
-    var current: String { Bundle.main.shortVersion }
+    /// Stamped into the binary by CI; the bundle is only a fallback for local builds.
+    var current: String { BuildInfo.isPlaceholder ? Bundle.main.shortVersion : BuildInfo.version }
+    var currentBuild: String { BuildInfo.isPlaceholder ? Bundle.main.buildNumber : BuildInfo.build }
 
     private struct Wire: Decodable {
         let tag_name: String
@@ -95,7 +97,13 @@ struct UpdateSettings: View {
     var body: some View {
         List {
             Section {
-                LabeledContent("Установлена", value: "\(up.current) (\(Bundle.main.buildNumber))")
+                LabeledContent("Установлена", value: "\(up.current) (\(up.currentBuild))")
+                // If the bundle disagrees with the stamped binary, say so out loud —
+                // that mismatch is what made "installed version" nonsense before.
+                if !BuildInfo.isPlaceholder, Bundle.main.shortVersion != BuildInfo.version {
+                    LabeledContent("Info.plist сообщает", value: Bundle.main.shortVersion)
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
                 if up.checking {
                     HStack { ProgressView(); Text("Проверяю…").foregroundStyle(.secondary) }
                 } else {
