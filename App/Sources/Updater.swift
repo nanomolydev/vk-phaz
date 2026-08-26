@@ -111,9 +111,11 @@ struct UpdateSettings: View {
                     Button { up.install() } label: {
                         Label("Обновить", systemImage: "arrow.down.circle.fill")
                     }
+                    if let ipa = rel.ipa {
+                        Link("Скачать .ipa вручную", destination: ipa).font(.footnote)
+                    }
                     if let page = rel.page {
-                        Link("Открыть на GitHub", destination: page)
-                            .font(.footnote)
+                        Link("Открыть на GitHub", destination: page).font(.footnote)
                     }
                 }
             } else if up.checkedOnce, up.error == nil {
@@ -125,7 +127,7 @@ struct UpdateSettings: View {
             }
 
             Section {
-                Text("Кнопка отдаёт .ipa установщику: LiveContainer, AltStore или SideStore — что стоит, то и подхватит. Если ни один не ответит, файл просто скачается.")
+                Text("Кнопка отдаёт .ipa установщику: LiveContainer, AltStore или SideStore. LiveContainer при этом попросит себя перезапустить — так и должно быть: приложение работает внутри него, и поставить обновление он может, только выгрузив его. После перезапуска установка продолжится.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
         }

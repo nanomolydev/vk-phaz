@@ -25,6 +25,11 @@ targets:
     info:
       path: App/Info.plist
       properties:
+        # Without these XcodeGen bakes literal 1.0/1 into Info.plist and the
+        # build settings never reach the app — it reported 1.0 forever and the
+        # updater saw every release as new.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: TK
         UILaunchScreen: {}
         NSPhotoLibraryUsageDescription: Для отправки фотографий в чат.
