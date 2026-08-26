@@ -50,8 +50,15 @@ struct VKAuthWeb: UIViewRepresentable {
             guard VKRedirect.isRedirect(url) else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
                 guard let self, !self.done else { return }
-                self.done = true
-                self.onError("VK не вернул токен. Попробуй ещё раз или введи токен вручную.")
+                // Read the live URL, not the stale one: a late hash rewrite is
+                // exactly the case that leaves us sitting on a blank page.
+                webView.evaluateJavaScript("location.href") { value, _ in
+                    if let href = value as? String, let u = URL(string: href), self.handle(u) { return }
+                    guard !self.done else { return }
+                    self.done = true
+                    let seen = (value as? String) ?? url.absoluteString
+                    self.onError("VK не вернул токен. Адрес: \(seen.prefix(160))")
+                }
             }
         }
 

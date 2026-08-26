@@ -93,7 +93,10 @@ struct LoginView: View {
                     .disabled(loading || input.trimmingCharacters(in: .whitespaces).isEmpty)
             }
 
-            if let error { Text(error).font(.footnote).foregroundStyle(.red).padding(.horizontal) }
+            if let error {
+                Text(error).font(.footnote).foregroundStyle(.red).padding(.horizontal)
+                    .textSelection(.enabled)   // so a stuck auth URL can be copied out
+            }
             Spacer()
         }
         .padding()
