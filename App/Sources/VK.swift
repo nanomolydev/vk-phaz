@@ -332,6 +332,15 @@ struct VK {
              "random_id": String(Int32.random(in: 1...Int32.max))])
     }
 
+    func editMessage(peerId: Int, cmid: Int, text: String) async throws {
+        let _: Int = try await call("messages.edit",
+            ["peer_id": String(peerId),
+             "conversation_message_id": String(cmid),
+             "message": text,
+             "keep_forward_messages": "1",
+             "keep_snippets": "1"])
+    }
+
     func pinMessage(peerId: Int, cmid: Int) async throws {
         let _: VKIgnored = try await call("messages.pin",
             ["peer_id": String(peerId), "conversation_message_id": String(cmid)])

@@ -42,6 +42,7 @@ struct ChatView: View {
     @State private var messages: [ChatMessage] = []
     @State private var draft = ""
     @State private var replyingTo: ChatMessage?
+    @State private var editingTo: ChatMessage?
     @State private var selected: ChatMessage?
     @State private var pending: [PendingAttachment] = []
     @State private var error: String?
@@ -155,6 +156,7 @@ struct ChatView: View {
                 onReact: { rid in Task { await react(cm, rid) } },
                 onRemoveReaction: { Task { await removeReaction(cm) } },
                 onReply: { replyingTo = cm },
+                onEdit: { editingTo = cm; replyingTo = nil; draft = cm.msg.text },
                 onCopy: { UIPasteboard.general.string = cm.msg.text },
                 onPin: { Task { await pin(cm) } },
                 onDeleteForMe: { Task { await delete(cm, forAll: false) } },
@@ -317,7 +319,8 @@ struct ChatView: View {
     // Bottom: floating glass controls over a soft progressive blur that fades up into the messages.
     private var bottomBar: some View {
         VStack(spacing: 6) {
-            if let reply = replyingTo { replyBanner(reply) }
+            if let editing = editingTo { editBanner(editing) }
+            else if let reply = replyingTo { replyBanner(reply) }
             if !pending.isEmpty { attachmentTray }
             if let error { Text(error).font(.caption).foregroundStyle(.red).padding(.horizontal) }
             inputBar
@@ -375,6 +378,14 @@ struct ChatView: View {
 
             if uploading {
                 ProgressView().frame(width: 42, height: 42)
+            } else if editingTo != nil {
+                Button { Task { await send() } } label: {
+                    Image(systemName: "checkmark")
+                        .font(.body.weight(.bold)).foregroundStyle(.white)
+                        .frame(width: 42, height: 42)
+                        .background(Color.accentColor, in: Circle())
+                }
+                .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             } else if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && pending.isEmpty {
                 Button {
                     if recorder.recording { Task { await finishVoice() } } else { recorder.start() }
@@ -409,7 +420,28 @@ struct ChatView: View {
                 Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 12).padding(.vertical, 6)
+        // The bar's own backdrop fades to clear at the top, so this banner sat
+        // straight on top of the messages. Give it something opaque to sit on.
+        .background(.regularMaterial)
+        .overlay(alignment: .top) { Divider() }
+    }
+
+    private func editBanner(_ editing: ChatMessage) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "pencil").foregroundStyle(Color.accentColor)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Редактирование").font(.caption.bold()).foregroundStyle(Color.accentColor)
+                Text(editing.msg.preview).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
+            Spacer()
+            Button { editingTo = nil; draft = "" } label: {
+                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 6)
+        .background(.regularMaterial)
+        .overlay(alignment: .top) { Divider() }
     }
 
     // MARK: actions
@@ -466,6 +498,12 @@ struct ChatView: View {
 
     private func send() async {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let editing = editingTo {
+            guard !text.isEmpty else { return }
+            draft = ""; editingTo = nil
+            await applyEdit(editing, text: text)
+            return
+        }
         guard !text.isEmpty || !pending.isEmpty else { return }
         draft = ""
         let reply = replyingTo?.msg.id
@@ -536,6 +574,15 @@ struct ChatView: View {
     private func pin(_ cm: ChatMessage) async {
         guard let cmid = cm.msg.conversation_message_id else { return }
         try? await vk.pinMessage(peerId: peerId, cmid: cmid)
+    }
+
+    private func applyEdit(_ cm: ChatMessage, text: String) async {
+        guard let cmid = cm.msg.conversation_message_id else {
+            error = "Нельзя отредактировать это сообщение"; return
+        }
+        do { try await vk.editMessage(peerId: peerId, cmid: cmid, text: text); await load() }
+        catch let e as VKError { error = e.error_msg }
+        catch { self.error = error.localizedDescription }
     }
 
     private func delete(_ cm: ChatMessage, forAll: Bool) async {
@@ -625,6 +672,9 @@ struct MessageRow: View {
                     }
                     Spacer(minLength: 0)
                 }
+                // The accent bar is a Shape, so it swallows every point of height
+                // the VStack offers — that's what blew the quote up to bubble size.
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(6)
                 .background(.black.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
             }
@@ -637,7 +687,11 @@ struct MessageRow: View {
             if let v = msg.voice { voiceRow(v) }
             if let d = msg.doc { docRow(d) }
             HStack(alignment: .bottom, spacing: 6) {
-                if !shownText.isEmpty { Text(shownText) }
+                // Without fixedSize the HStack hands the text an ideal height and
+                // clips the overflow — long messages ended in "…" mid-sentence.
+                if !shownText.isEmpty {
+                    Text(shownText).fixedSize(horizontal: false, vertical: true)
+                }
                 Text(hhmm(msg.date))
                     .font(.caption2)
                     .foregroundStyle(mine ? Color.white.opacity(0.75) : Color.secondary)

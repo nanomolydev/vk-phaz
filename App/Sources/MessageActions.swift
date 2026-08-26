@@ -10,15 +10,24 @@ struct MessageActionsOverlay: View {
     let onReact: (Int) -> Void
     let onRemoveReaction: () -> Void
     let onReply: () -> Void
+    let onEdit: () -> Void
     let onCopy: () -> Void
     let onPin: () -> Void
     let onDeleteForMe: () -> Void
     let onDeleteForAll: () -> Void
     let onDismiss: () -> Void
 
+    /// VK refuses messages.edit past 24h, so don't offer a button that only errors.
+    private var canEdit: Bool {
+        !cm.msg.text.isEmpty
+            && Date().timeIntervalSince1970 - Double(cm.msg.date) < 24 * 3600
+    }
+
     var body: some View {
         ZStack {
-            Color.black.opacity(0.35).ignoresSafeArea()
+            // Blur the chat behind, the way iOS context menus do — a flat dim
+            // just darkened the screen and read as a bug.
+            Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
                 .onTapGesture { onDismiss() }
             VStack(spacing: 12) {
                 reactionPill
@@ -48,6 +57,11 @@ struct MessageActionsOverlay: View {
     private var menu: some View {
         VStack(spacing: 0) {
             row("Ответить", "arrowshape.turn.up.left", action: onReply)
+            // VK only allows editing your own text, and only for 24 hours.
+            if mine && canEdit {
+                Divider()
+                row("Редактировать", "pencil", action: onEdit)
+            }
             Divider()
             row("Копировать", "doc.on.doc", action: onCopy)
             Divider()
