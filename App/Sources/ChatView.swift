@@ -103,6 +103,10 @@ struct ChatView: View {
                 .safeAreaInset(edge: .bottom) { if searchMode { searchNavBar } else { bottomBar } }
         }
         .navigationBarTitleDisplayMode(.inline)
+        // Without an explicit background the messages scrolled under the bar
+        // stayed razor sharp; this is the frosted strip they pass behind.
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -138,7 +142,14 @@ struct ChatView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { if isUser && peerId != ownId { showProfile = true } } label: {
                     AvatarView(url: peerProfile?.avatar, name: title, id: peerId, size: 32)
+                        .clipShape(Circle())
                 }
+                // The toolbar's own button backdrop is a squircle, so a round
+                // avatar sat inside a not-quite-round plate. Drop it and put a
+                // circular one back, matching the other toolbar chips.
+                .buttonStyle(.plain)
+                .padding(3)
+                .glassEffect(in: Circle())
             }
         }
         .onAppear { live.setActive(peer: peerId) }
@@ -327,9 +338,11 @@ struct ChatView: View {
         }
         .padding(.top, 10)
         .background(alignment: .bottom) {
+            // No mask here: masking a Material forces an offscreen layer, which
+            // cuts it off from the backdrop it needs to sample — the blur silently
+            // degraded into a flat fill. Fade with an overlay instead.
             Rectangle().fill(.ultraThinMaterial)
-                .mask(LinearGradient(colors: [.clear, .black.opacity(0.6), .black],
-                                     startPoint: .top, endPoint: .bottom))
+                .overlay(alignment: .top) { Divider() }
                 .ignoresSafeArea()
         }
     }
