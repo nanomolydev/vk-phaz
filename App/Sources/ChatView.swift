@@ -43,6 +43,7 @@ struct ChatView: View {
     @State private var draft = ""
     @State private var replyingTo: ChatMessage?
     @State private var editingTo: ChatMessage?
+    @State private var atBottom = true
     @State private var selected: ChatMessage?
     @State private var pending: [PendingAttachment] = []
     @State private var error: String?
@@ -105,7 +106,7 @@ struct ChatView: View {
         .navigationBarTitleDisplayMode(.inline)
         // Without an explicit background the messages scrolled under the bar
         // stayed razor sharp; this is the frosted strip they pass behind.
-        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        .toolbarBackground(.regularMaterial, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
@@ -234,9 +235,31 @@ struct ChatView: View {
                     if live.isTyping(peerId) {
                         HStack { TypingDots(); Spacer() }.padding(.horizontal, 12).id("typing")
                     }
+                    // Zero-height probe at the very end: while it's on screen we
+                    // are at the bottom. Cheaper than tracking scroll offsets.
+                    Color.clear.frame(height: 1).id("bottom-probe")
+                        .onAppear { atBottom = true }
+                        .onDisappear { atBottom = false }
                 }
                 .padding(.vertical, 8)
             }
+            .overlay(alignment: .bottomTrailing) {
+                if !atBottom {
+                    Button {
+                        if let last = messages.last {
+                            withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                        }
+                    } label: {
+                        Image(systemName: "chevron.down")
+                            .font(.body.weight(.semibold))
+                            .frame(width: 40, height: 40)
+                            .glassEffect(in: Circle())
+                    }
+                    .padding(.trailing, 12)
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .animation(.snappy, value: atBottom)
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: messages.count) { _ in
                 if highlightId == nil, let last = messages.last {
@@ -341,7 +364,9 @@ struct ChatView: View {
             // No mask here: masking a Material forces an offscreen layer, which
             // cuts it off from the backdrop it needs to sample — the blur silently
             // degraded into a flat fill. Fade with an overlay instead.
-            Rectangle().fill(.ultraThinMaterial)
+            // regularMaterial, not ultraThin: over a flat wallpaper ultraThin is
+            // near-invisible, which is why the bar kept reading as "no blur".
+            Rectangle().fill(.regularMaterial)
                 .overlay(alignment: .top) { Divider() }
                 .ignoresSafeArea()
         }
@@ -460,8 +485,14 @@ struct ChatView: View {
     // MARK: actions
 
     private func load() async {
+        // Show the cached tail immediately so the chat isn't blank while loading.
+        if messages.isEmpty, let cached = DiskCache.load([ChatMessage].self, "chat-\(peerId)") {
+            messages = cached
+            processSecret()
+        }
         do {
             messages = try await vk.history(peerId: peerId)
+            DiskCache.save(messages.suffix(60).map { $0 }, as: "chat-\(peerId)")
             outRead = (try? await vk.outRead(peerId: peerId)) ?? outRead
             processSecret()
             error = nil

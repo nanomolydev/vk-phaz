@@ -105,6 +105,7 @@ extension Bundle {
 
 struct UpdateSettings: View {
     @StateObject private var up = Updater.shared
+    @State private var copied = false
 
     var body: some View {
         List {
@@ -128,11 +129,19 @@ struct UpdateSettings: View {
                     if !rel.notes.isEmpty {
                         Text(rel.notes).font(.footnote).foregroundStyle(.secondary)
                     }
+                    Button {
+                        UIPasteboard.general.string = Updater.sourceURL
+                        copied = true
+                    } label: {
+                        Label(copied ? "Ссылка скопирована" : "Скопировать ссылку источника",
+                              systemImage: copied ? "checkmark" : "doc.on.doc")
+                    }
                     Button { up.addSourceToLiveContainer() } label: {
-                        Label("Обновить через LiveContainer", systemImage: "arrow.down.circle.fill")
+                        Label("Открыть LiveContainer", systemImage: "arrow.up.forward.app")
+                            .font(.footnote)
                     }
                     Button { up.install() } label: {
-                        Label("Отдать установщику (AltStore/SideStore)", systemImage: "square.and.arrow.down")
+                        Label("Отдать AltStore / SideStore", systemImage: "square.and.arrow.down")
                             .font(.footnote)
                     }
                     if let ipa = rel.ipa {
@@ -151,11 +160,7 @@ struct UpdateSettings: View {
             }
 
             Section {
-                Text("«Обновить через LiveContainer» добавит TK в его вкладку «Sources» — один раз. Дальше обновления ставятся из самого LiveContainer, и он больше не будет просить перезапуск: поставить обновление, пока приложение работает внутри него, он всё равно не может.")
-                Button("Скопировать ссылку на источник") {
-                    UIPasteboard.general.string = Updater.sourceURL
-                }
-                .font(.footnote)
+                Text("Установить обновление отсюда нельзя: приложение работает внутри LiveContainer, и чтобы что-то поставить, он должен себя перезапустить — а вместе с процессом теряется и запрос. Поэтому кнопка и просила перезапуск бесконечно.\n\nРабочий способ, один раз: скопируй ссылку выше → открой LiveContainer → вкладка «Sources» → добавь источник. Дальше TK обновляется прямо оттуда.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
         }

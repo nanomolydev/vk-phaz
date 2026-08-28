@@ -11,7 +11,7 @@ struct VKError: Decodable, Error {
 struct VKResponse<T: Decodable>: Decodable { let response: T?; let error: VKError? }
 struct VKIgnored: Decodable {}  // for responses whose body we don't need
 
-struct Profile: Decodable, Identifiable {
+struct Profile: Codable, Identifiable {
     let id: Int
     let first_name: String
     let last_name: String
@@ -23,13 +23,13 @@ struct Profile: Decodable, Identifiable {
     var screen_name: String?
     var city: City?
     var is_closed: Bool?
-    struct LastSeen: Decodable { let time: Int }
-    struct City: Decodable { let title: String }
+    struct LastSeen: Codable { let time: Int }
+    struct City: Codable { let title: String }
     var fullName: String { "\(first_name) \(last_name)" }
     var avatar: URL? { (photo_200 ?? photo_100).flatMap(URL.init(string:)) }
 }
 
-struct VKGroup: Decodable {
+struct VKGroup: Codable {
     let id: Int
     let name: String
     var photo_100: String?
@@ -37,20 +37,20 @@ struct VKGroup: Decodable {
     var screen_name: String?
 }
 
-struct AttachmentImage: Decodable { let url: String; let width: Int }
-struct Attachment: Decodable {
+struct AttachmentImage: Codable { let url: String; let width: Int }
+struct Attachment: Codable {
     let type: String
     let sticker: Sticker?
     let photo: Photo?
     let doc: Doc?
     let audio_message: AudioMessage?
-    struct Sticker: Decodable { let images: [AttachmentImage] }
-    struct Photo: Decodable { let sizes: [AttachmentImage] }
-    struct Doc: Decodable { let title: String?; let url: String?; let ext: String?; let size: Int? }
-    struct AudioMessage: Decodable { let duration: Int?; let link_mp3: String?; let link_ogg: String? }
+    struct Sticker: Codable { let images: [AttachmentImage] }
+    struct Photo: Codable { let sizes: [AttachmentImage] }
+    struct Doc: Codable { let title: String?; let url: String?; let ext: String?; let size: Int? }
+    struct AudioMessage: Codable { let duration: Int?; let link_mp3: String?; let link_ogg: String? }
 }
 
-struct Msg: Decodable, Identifiable {
+struct Msg: Codable, Identifiable {
     let id: Int
     let from_id: Int
     let text: String
@@ -60,7 +60,7 @@ struct Msg: Decodable, Identifiable {
     var reply_message: Reply?
     var fwd_messages: [Reply]?
     var reactions: [Reaction]?
-    struct Reply: Decodable {
+    struct Reply: Codable {
         let from_id: Int
         let text: String
         enum K: String, CodingKey { case from_id, text }
@@ -70,7 +70,7 @@ struct Msg: Decodable, Identifiable {
             text = try c.decodeIfPresent(String.self, forKey: .text) ?? ""
         }
     }
-    struct Reaction: Decodable { let reaction_id: Int; let count: Int }
+    struct Reaction: Codable { let reaction_id: Int; let count: Int }
 
     enum K: String, CodingKey {
         case id, from_id, text, date, conversation_message_id
@@ -194,7 +194,7 @@ struct StickerPack: Identifiable {
 }
 
 // A resolved chat-list row.
-struct ChatRow: Identifiable, Hashable {
+struct ChatRow: Identifiable, Hashable, Codable {
     let peerId: Int
     let title: String
     let subtitle: String
@@ -208,7 +208,7 @@ struct ChatRow: Identifiable, Hashable {
 }
 
 // A message plus its resolved sender (for group chats / replies).
-struct ChatMessage: Identifiable {
+struct ChatMessage: Identifiable, Codable {
     let msg: Msg
     let senderName: String
     let senderAvatar: URL?

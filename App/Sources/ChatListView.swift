@@ -111,8 +111,13 @@ struct ChatListView: View {
     }
 
     private func load() async {
+        // Paint the last known list first — the network call follows and replaces it.
+        if rows.isEmpty, let cached = DiskCache.load([ChatRow].self, "chats-\(ownId)") {
+            rows = cached
+        }
         do {
             rows = try await vk.conversations()
+            DiskCache.save(rows, as: "chats-\(ownId)")
             live.setNames(Dictionary(rows.map { ($0.peerId, $0.title) }, uniquingKeysWith: { a, _ in a }))
             error = nil
         }
