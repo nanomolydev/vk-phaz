@@ -19,9 +19,19 @@ enum VKRedirectCheck {
         expect("https://oauth.vk.com/blank.html#access_token=abc123&expires_in=0&user_id=1",
                .token("abc123"), "token from fragment")
 
+        // VK moved the ID flow to vk.ru; a .com-only check dropped every token.
+        expect("https://oauth.vk.ru/blank.html#access_token=abc123&expires_in=0&user_id=1",
+               .token("abc123"), "token from the vk.ru redirect")
+
+        // Suffix matching alone would trust a lookalike domain.
+        expect("https://evilvk.ru/blank.html#access_token=stolen", nil, "lookalike domain rejected")
+        expect("https://vk.com.evil.net/blank.html#access_token=stolen", nil, "suffix-spoof rejected")
+
         // The bug: VK ID intermediate URLs carry their own access_token. Must be ignored.
         expect("https://id.vk.com/auth?app_id=2685278&access_token=anonymous.deadbeef",
                nil, "anonymous token on id.vk.com ignored")
+        expect("https://id.vk.ru/auth?app_id=2685278&access_token=anonymous.deadbeef",
+               nil, "anonymous token on id.vk.ru ignored")
         expect("https://login.vk.com/?act=web_token&access_token=service.xyz",
                nil, "service token on login.vk.com ignored")
 
