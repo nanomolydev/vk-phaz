@@ -44,6 +44,7 @@ struct ChatView: View {
     @State private var replyingTo: ChatMessage?
     @State private var editingTo: ChatMessage?
     @State private var atBottom = true
+    @State private var didFirstScroll = false
     @State private var selected: ChatMessage?
     @State private var pending: [PendingAttachment] = []
     @State private var error: String?
@@ -74,6 +75,18 @@ struct ChatView: View {
     @State private var secretText: [Int: String] = [:]   // msg.id -> decrypted/annotated display
     @State private var showWallpaperPicker = false
     @State private var wallpaperItem: PhotosPickerItem?
+
+    // Seed from cache *before* the first render. Filling these in .task instead
+    // meant the chat drew empty, then poured messages in (the "waterfall") and
+    // swapped the header in afterwards.
+    init(vk: VK, peerId: Int, title: String, ownId: Int) {
+        self.vk = vk
+        self.peerId = peerId
+        self.title = title
+        self.ownId = ownId
+        _messages = State(initialValue: DiskCache.load([ChatMessage].self, "chat-\(peerId)") ?? [])
+        _peerProfile = State(initialValue: DiskCache.load(Profile.self, "peer-\(peerId)"))
+    }
 
     private var isChat: Bool { peerId >= 2_000_000_000 }
     private var isUser: Bool { peerId > 0 && peerId < 2_000_000_000 }
@@ -106,7 +119,7 @@ struct ChatView: View {
         .navigationBarTitleDisplayMode(.inline)
         // Without an explicit background the messages scrolled under the bar
         // stayed razor sharp; this is the frosted strip they pass behind.
-        .toolbarBackground(.regularMaterial, for: .navigationBar)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
@@ -157,7 +170,10 @@ struct ChatView: View {
         .onDisappear { live.setActive(peer: nil) }
         .task {
             await load()
-            if isUser && peerId != ownId { peerProfile = try? await vk.user(id: peerId) }
+            if isUser && peerId != ownId, let p = try? await vk.user(id: peerId) {
+                peerProfile = p
+                DiskCache.save(p, as: "peer-\(peerId)")
+            }
         }
         .onChange(of: live.bump) { _ in Task { await load() } }
         .fullScreenCover(item: $selected) { cm in
@@ -261,9 +277,17 @@ struct ChatView: View {
             }
             .animation(.snappy, value: atBottom)
             .scrollDismissesKeyboard(.interactively)
+            // Start already at the newest message instead of scrolling there.
+            .defaultScrollAnchor(.bottom)
             .onChange(of: messages.count) { _ in
-                if highlightId == nil, let last = messages.last {
+                guard highlightId == nil, let last = messages.last else { return }
+                if didFirstScroll {
                     withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                } else {
+                    // First fill (cache, then the network replacing it) must not
+                    // animate — that scroll-through was the "waterfall".
+                    didFirstScroll = true
+                    proxy.scrollTo(last.id, anchor: .bottom)
                 }
             }
             .onChange(of: highlightId) { id in
@@ -364,9 +388,11 @@ struct ChatView: View {
             // No mask here: masking a Material forces an offscreen layer, which
             // cuts it off from the backdrop it needs to sample — the blur silently
             // degraded into a flat fill. Fade with an overlay instead.
-            // regularMaterial, not ultraThin: over a flat wallpaper ultraThin is
-            // near-invisible, which is why the bar kept reading as "no blur".
-            Rectangle().fill(.regularMaterial)
+            // ultraThin, not regular: regular is opaque enough to read as a
+            // flat slab. The blur works now that the gradient mask (which
+            // disabled it) is gone, so the thin material actually shows the
+            // messages through it.
+            Rectangle().fill(.ultraThinMaterial)
                 .overlay(alignment: .top) { Divider() }
                 .ignoresSafeArea()
         }
@@ -485,11 +511,6 @@ struct ChatView: View {
     // MARK: actions
 
     private func load() async {
-        // Show the cached tail immediately so the chat isn't blank while loading.
-        if messages.isEmpty, let cached = DiskCache.load([ChatMessage].self, "chat-\(peerId)") {
-            messages = cached
-            processSecret()
-        }
         do {
             messages = try await vk.history(peerId: peerId)
             DiskCache.save(messages.suffix(60).map { $0 }, as: "chat-\(peerId)")
