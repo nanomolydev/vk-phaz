@@ -60,8 +60,38 @@ struct Msg: Decodable, Identifiable {
     var reply_message: Reply?
     var fwd_messages: [Reply]?
     var reactions: [Reaction]?
-    struct Reply: Decodable { let from_id: Int; let text: String }
+    struct Reply: Decodable {
+        let from_id: Int
+        let text: String
+        enum K: String, CodingKey { case from_id, text }
+        init(from d: Decoder) throws {
+            let c = try d.container(keyedBy: K.self)
+            from_id = try c.decodeIfPresent(Int.self, forKey: .from_id) ?? 0
+            text = try c.decodeIfPresent(String.self, forKey: .text) ?? ""
+        }
+    }
     struct Reaction: Decodable { let reaction_id: Int; let count: Int }
+
+    enum K: String, CodingKey {
+        case id, from_id, text, date, conversation_message_id
+        case attachments, reply_message, fwd_messages, reactions
+    }
+
+    // Service messages, pinned payloads and some forwards omit fields VK's docs
+    // call mandatory. Treating them as required threw, and one such message
+    // took the whole chat list down with it.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: K.self)
+        id = try c.decodeIfPresent(Int.self, forKey: .id) ?? 0
+        from_id = try c.decodeIfPresent(Int.self, forKey: .from_id) ?? 0
+        text = try c.decodeIfPresent(String.self, forKey: .text) ?? ""
+        date = try c.decodeIfPresent(Int.self, forKey: .date) ?? 0
+        conversation_message_id = try c.decodeIfPresent(Int.self, forKey: .conversation_message_id)
+        attachments = try c.decodeIfPresent(Lossy<Attachment>.self, forKey: .attachments)?.wrappedValue
+        reply_message = try? c.decodeIfPresent(Reply.self, forKey: .reply_message)
+        fwd_messages = try c.decodeIfPresent(Lossy<Reply>.self, forKey: .fwd_messages)?.wrappedValue
+        reactions = try c.decodeIfPresent(Lossy<Reaction>.self, forKey: .reactions)?.wrappedValue
+    }
 
     var stickerURL: URL? {
         guard let img = (attachments ?? []).first(where: { $0.type == "sticker" })?
@@ -90,17 +120,44 @@ struct Msg: Decodable, Identifiable {
     }
 }
 
+// VK's shapes vary per message kind, and a single unexpected element used to
+// fail the whole decode — one odd conversation blanked the entire chat list.
+// Decode elements individually and drop only the ones that don't fit.
+@propertyWrapper
+struct Lossy<T: Decodable>: Decodable {
+    var wrappedValue: [T]
+
+    private struct Element: Decodable {
+        let value: T?
+        init(from decoder: Decoder) throws { value = try? T(from: decoder) }
+    }
+
+    init(from decoder: Decoder) throws {
+        // Decoding as Element never throws, so the container always advances.
+        wrappedValue = try [Element](from: decoder).compactMap(\.value)
+    }
+
+    init(wrappedValue: [T]) { self.wrappedValue = wrappedValue }
+}
+
+extension KeyedDecodingContainer {
+    /// A missing or null list is an empty list, not a failure.
+    func decode<T>(_ type: Lossy<T>.Type, forKey key: Key) throws -> Lossy<T> {
+        try decodeIfPresent(type, forKey: key) ?? Lossy(wrappedValue: [])
+    }
+}
+
 struct HistoryResponse: Decodable {
     let count: Int?
-    let items: [Msg]
-    let profiles: [Profile]?
-    let groups: [VKGroup]?
+    @Lossy var items: [Msg]
+    @Lossy var profiles: [Profile]
+    @Lossy var groups: [VKGroup]
 }
 
 struct Conversations: Decodable {
-    let items: [ConvItem]
-    let profiles: [Profile]?
-    let groups: [VKGroup]?
+    @Lossy var items: [ConvItem]
+    @Lossy var profiles: [Profile]
+    @Lossy var groups: [VKGroup]
 }
 struct ConvItem: Decodable { let conversation: Conv; let last_message: Msg? }
 struct Conv: Decodable {
@@ -177,6 +234,19 @@ struct VK {
         return (names, avatars)
     }
 
+    private func describe(_ e: DecodingError) -> String {
+        func path(_ ctx: DecodingError.Context) -> String {
+            ctx.codingPath.map(\.stringValue).joined(separator: ".")
+        }
+        switch e {
+        case .keyNotFound(let k, let ctx): return "нет поля '\(k.stringValue)' в \(path(ctx))"
+        case .valueNotFound(_, let ctx): return "пустое значение в \(path(ctx))"
+        case .typeMismatch(let t, let ctx): return "\(path(ctx)) — ожидался \(t)"
+        case .dataCorrupted(let ctx): return "испорченный ответ \(path(ctx))"
+        @unknown default: return e.localizedDescription
+        }
+    }
+
     private func call<T: Decodable>(_ method: String, _ params: [String: String], retries: Int = 1) async throws -> T {
         var comps = URLComponents()
         var q = params
@@ -188,7 +258,13 @@ struct VK {
         req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         req.httpBody = comps.percentEncodedQuery?.data(using: .utf8)
         let (data, _) = try await URLSession.shared.data(for: req)
-        let wrapped = try JSONDecoder().decode(VKResponse<T>.self, from: data)
+        let wrapped: VKResponse<T>
+        do { wrapped = try JSONDecoder().decode(VKResponse<T>.self, from: data) }
+        catch let e as DecodingError {
+            // "The data couldn't be read because it is missing" names nothing.
+            // Say which method and which field, so a VK shape change is one read.
+            throw VKError(error_code: -2, error_msg: "\(method): \(describe(e))")
+        }
         if let e = wrapped.error {
             // error 14 = captcha: show it, get the user's answer, retry once with the key.
             if e.error_code == 14, retries > 0, let sid = e.captcha_sid, let img = e.captcha_img {
