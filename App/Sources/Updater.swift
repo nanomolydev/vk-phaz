@@ -60,6 +60,18 @@ final class Updater: ObservableObject {
         }
     }
 
+    /// Always points at the newest release's manifest, so it never needs updating.
+    static let sourceURL = "https://github.com/nanomolydev/vk-phaz/releases/latest/download/apps.json"
+
+    /// Register this app as a source in LiveContainer. Its Sources tab is the
+    /// only update path that works from inside it — `livecontainer://install`
+    /// fired from a guest app forces a restart that discards the deep link,
+    /// which is why the install button only ever said "restart LiveContainer".
+    func addSourceToLiveContainer() {
+        guard let u = URL(string: "livecontainer://source?url=\(Self.sourceURL)") else { return }
+        UIApplication.shared.open(u)
+    }
+
     /// Hand the .ipa to the sideloader that can install it; fall back to the release page.
     func install() {
         guard let rel = latest else { return }
@@ -116,8 +128,12 @@ struct UpdateSettings: View {
                     if !rel.notes.isEmpty {
                         Text(rel.notes).font(.footnote).foregroundStyle(.secondary)
                     }
+                    Button { up.addSourceToLiveContainer() } label: {
+                        Label("Обновить через LiveContainer", systemImage: "arrow.down.circle.fill")
+                    }
                     Button { up.install() } label: {
-                        Label("Обновить", systemImage: "arrow.down.circle.fill")
+                        Label("Отдать установщику (AltStore/SideStore)", systemImage: "square.and.arrow.down")
+                            .font(.footnote)
                     }
                     if let ipa = rel.ipa {
                         Link("Скачать .ipa вручную", destination: ipa).font(.footnote)
@@ -135,7 +151,11 @@ struct UpdateSettings: View {
             }
 
             Section {
-                Text("Кнопка отдаёт .ipa установщику: LiveContainer, AltStore или SideStore. LiveContainer при этом попросит себя перезапустить — так и должно быть: приложение работает внутри него, и поставить обновление он может, только выгрузив его. После перезапуска установка продолжится.")
+                Text("«Обновить через LiveContainer» добавит TK в его вкладку «Sources» — один раз. Дальше обновления ставятся из самого LiveContainer, и он больше не будет просить перезапуск: поставить обновление, пока приложение работает внутри него, он всё равно не может.")
+                Button("Скопировать ссылку на источник") {
+                    UIPasteboard.general.string = Updater.sourceURL
+                }
+                .font(.footnote)
                     .font(.footnote).foregroundStyle(.secondary)
             }
         }

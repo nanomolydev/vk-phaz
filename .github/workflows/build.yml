@@ -87,12 +87,47 @@ jobs:
           name: VKPhaz-ipa
           path: VKPhaz.ipa
 
+      # AltStore-format source. LiveContainer consumes this in its Sources tab,
+      # which is the only update path that works from inside it: a guest app
+      # opening livecontainer://install has to restart LiveContainer, and the
+      # deep link dies with the process.
+      - name: Build source manifest
+        run: |
+          SIZE=$(stat -f%z VKPhaz.ipa) VERSION=$VERSION \
+          BUILD=${{ github.run_number }} \
+          NOTES="$(git log -1 --pretty=%s)" \
+          DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+          python3 - <<'PY' > apps.json
+          import json, os
+          v, size = os.environ["VERSION"], int(os.environ["SIZE"])
+          url = f"https://github.com/${{ github.repository }}/releases/download/v{v}/VKPhaz.ipa"
+          ver = {"version": v, "buildVersion": os.environ["BUILD"],
+                 "date": os.environ["DATE"], "localizedDescription": os.environ["NOTES"],
+                 "downloadURL": url, "size": size}
+          print(json.dumps({
+              "name": "TK", "identifier": "com.vkphaz.source",
+              "subtitle": "Неофициальный клиент VK",
+              "website": "https://github.com/${{ github.repository }}",
+              "apps": [{
+                  "name": "TK", "bundleIdentifier": "com.vkphaz.app",
+                  "developerName": "nanomolydev",
+                  "subtitle": "Неофициальный клиент VK",
+                  "localizedDescription": "Неофициальный клиент VK с конспектом переписки на устройстве.",
+                  "version": v, "versionDate": os.environ["DATE"],
+                  "versionDescription": os.environ["NOTES"],
+                  "downloadURL": url, "size": size,
+                  "versions": [ver],
+              }],
+          }, ensure_ascii=False, indent=2))
+          PY
+          cat apps.json
+
       # The in-app updater reads releases/latest, so main must publish one.
       - name: Publish release
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v$VERSION" VKPhaz.ipa \
+          gh release create "v$VERSION" VKPhaz.ipa apps.json \
             --title "v$VERSION" \
             --notes "$(git log -1 --pretty=%s)"
