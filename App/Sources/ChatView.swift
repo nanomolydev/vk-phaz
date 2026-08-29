@@ -123,7 +123,9 @@ struct ChatView: View {
         // strip. The giveaway was the bottom going clear only once the keyboard
         // lifted the row clear of the tab bar's backdrop.
         .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbarBackground(.hidden, for: .tabBar)
+        // Only .toolbar(.hidden) for the tab bar — pairing it with a
+        // toolbarBackground override made the bar take a couple of seconds to
+        // come back after popping the chat.
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
