@@ -1,0 +1,82 @@
+name: Screenshots
+
+# Boots the app in a simulator and captures the real screens, so UI work can be
+# checked by looking at it instead of guessing from descriptions.
+on:
+  workflow_dispatch:
+
+jobs:
+  shots:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Cache simulator DerivedData
+        uses: actions/cache@v4
+        with:
+          path: build-sim
+          key: sim-${{ runner.os }}-xc26-${{ hashFiles('project.yml') }}-${{ github.sha }}
+          restore-keys: |
+            sim-${{ runner.os }}-xc26-${{ hashFiles('project.yml') }}-
+            sim-${{ runner.os }}-xc26-
+
+      - name: Build for simulator
+        run: |
+          xcodebuild build \
+            -project VKPhaz.xcodeproj -scheme VKPhaz \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build-sim \
+            -skipMacroValidation -skipPackagePluginValidation \
+            COMPILER_INDEX_STORE_ENABLE=NO DEBUG_INFORMATION_FORMAT=dwarf \
+            CODE_SIGNING_ALLOWED=NO | tail -20
+
+      - name: Boot simulator and capture
+        run: |
+          set -x
+          DEV=$(xcrun simctl create shots com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro || true)
+          [ -z "$DEV" ] && DEV=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)['devices']
+          for k,v in d.items():
+              for dev in v:
+                  if 'iPhone' in dev['name']: print(dev['udid']); raise SystemExit")
+          echo "device=$DEV"
+          xcrun simctl boot "$DEV" || true
+          xcrun simctl bootstatus "$DEV" -b
+          APP=build-sim/Build/Products/Debug-iphonesimulator/VKPhaz.app
+          xcrun simctl install "$DEV" "$APP"
+          mkdir -p shots
+
+          shot () {   # name, extra launch args
+            name=$1; shift
+            xcrun simctl terminate "$DEV" com.vkphaz.app || true
+            xcrun simctl launch "$DEV" com.vkphaz.app -uiPreview "$@"
+            sleep 6
+            xcrun simctl io "$DEV" screenshot "shots/$name.png"
+          }
+
+          shot 01-chat-list
+          shot 02-chat -uiPreviewChat
+          # dark mode tells us whether a bar is translucent or a painted slab
+          xcrun simctl ui "$DEV" appearance dark
+          shot 03-chat-list-dark
+          shot 04-chat-dark -uiPreviewChat
+          ls -la shots
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: shots/

@@ -78,15 +78,16 @@ struct ChatListView: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 VStack(spacing: 8) {
                     searchField
+                    // Its own floating pill, detached from the screen edge.
                     FolderStrip(folders: folders, selected: $selectedFolder,
                                 onAdd: { editingFolder = ChatFolder(name: "", peerIds: []) },
                                 onEdit: { editingFolder = $0 })
+                        .padding(.vertical, 4)
+                        .background(.regularMaterial, in: Capsule())
+                        .padding(.horizontal, 12)
                 }
+                .padding(.top, 4)
                 .padding(.bottom, 8)
-                // This header does need a backdrop — rows scroll underneath it,
-                // and without one the chat titles read straight through the
-                // search field and the folder chips.
-                .background(.bar)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -148,7 +149,7 @@ struct ChatListView: View {
         }
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity)
-        .background(.quaternary, in: Capsule())
+        .background(.regularMaterial, in: Capsule())
         .padding(.horizontal, 12)
     }
 

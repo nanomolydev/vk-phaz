@@ -14,7 +14,15 @@ final class AccountStore: ObservableObject {
 
     private let key = "vk_accounts"
 
-    init() { load() }
+    init() {
+        if PreviewMode.isOn {
+            PreviewMode.seed()
+            accounts = [PreviewMode.account]
+            activeId = PreviewMode.account.id
+            return
+        }
+        load()
+    }
 
     var active: Account? { accounts.first { $0.id == activeId } }
     var vk: VK? { active.map { VK(token: $0.token) } }

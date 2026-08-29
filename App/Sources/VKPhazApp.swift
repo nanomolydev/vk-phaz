@@ -36,7 +36,13 @@ struct RootView: View {
     }
 
     @ViewBuilder private var content: some View {
-        if let vk = store.vk, let acc = store.active {
+        if PreviewMode.opensChat, let vk = store.vk {
+            // CI screenshots the conversation itself, not just the list.
+            NavigationStack {
+                ChatView(vk: vk, peerId: PreviewMode.peerId, title: "Салават",
+                         ownId: PreviewMode.ownId)
+            }
+        } else if let vk = store.vk, let acc = store.active {
             TabView {
                 Tab("Контакты", systemImage: "person.2.fill") {
                     ContactsView(vk: vk, ownId: acc.id)

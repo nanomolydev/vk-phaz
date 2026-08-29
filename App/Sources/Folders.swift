@@ -52,15 +52,14 @@ struct FolderStrip: View {
         .scrollClipDisabled()
     }
 
+    // No filled capsule behind the active folder — the selection reads from the
+    // accent colour and weight alone.
     private func chip(title: String, active: Bool, tap: @escaping () -> Void) -> some View {
         Button(action: tap) {
             Text(title)
                 .font(.subheadline.weight(active ? .semibold : .regular))
-                .foregroundStyle(active ? Color.primary : Color.secondary)
-                .padding(.horizontal, 14).padding(.vertical, 8)
-                .background {
-                    if active { Capsule().fill(.quaternary) }
-                }
+                .foregroundStyle(active ? Color.accentColor : Color.secondary)
+                .padding(.horizontal, 12).padding(.vertical, 6)
         }
         .buttonStyle(.plain)
     }
