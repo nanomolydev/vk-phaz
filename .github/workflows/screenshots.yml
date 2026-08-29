@@ -72,11 +72,11 @@ jobs:
             xcrun simctl io "$DEV" screenshot "shots/$name.png"
           }
 
-          shot 01-chat-list
+          shot 01-chat-list -uiPreviewList
           shot 02-chat -uiPreviewChat
           # dark mode tells us whether a bar is translucent or a painted slab
           xcrun simctl ui "$DEV" appearance dark
-          shot 03-chat-list-dark
+          shot 03-chat-list-dark -uiPreviewList
           shot 04-chat-dark -uiPreviewChat
           ls -la shots
 

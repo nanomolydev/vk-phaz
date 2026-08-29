@@ -182,7 +182,7 @@ struct ChatListView: View {
             live.setNames(Dictionary(rows.map { ($0.peerId, $0.title) }, uniquingKeysWith: { a, _ in a }))
             error = nil
         }
-        catch let e as VKError { error = e.error_msg }
+        catch let e as VKError { error = PreviewMode.isOn ? nil : e.error_msg }
         catch { self.error = error.localizedDescription }
     }
 }

@@ -522,7 +522,7 @@ struct ChatView: View {
             processSecret()
             error = nil
         }
-        catch let e as VKError { error = e.error_msg }
+        catch let e as VKError { error = PreviewMode.isOn ? nil : e.error_msg }
         catch { self.error = error.localizedDescription }
     }
 

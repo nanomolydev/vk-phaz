@@ -42,6 +42,8 @@ struct RootView: View {
                 ChatView(vk: vk, peerId: PreviewMode.peerId, title: "Салават",
                          ownId: PreviewMode.ownId)
             }
+        } else if PreviewMode.opensList, let vk = store.vk {
+            ChatListView(vk: vk, ownId: PreviewMode.ownId)
         } else if let vk = store.vk, let acc = store.active {
             TabView {
                 Tab("Контакты", systemImage: "person.2.fill") {
@@ -56,7 +58,7 @@ struct RootView: View {
             }
             .id(acc.id)
             .toolbarBackground(.hidden, for: .tabBar)
-            .onAppear { live.requestAuth(); live.start(vk: vk) }
+            .onAppear { if !PreviewMode.isOn { live.requestAuth() }; live.start(vk: vk) }
             .onDisappear { live.stop() }
         } else {
             LoginView(title: "TK") { try await store.addAccount(token: $0) }

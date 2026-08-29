@@ -8,6 +8,8 @@ enum PreviewMode {
     static var isOn: Bool { ProcessInfo.processInfo.arguments.contains("-uiPreview") }
     /// Open straight into a conversation rather than the chat list.
     static var opensChat: Bool { ProcessInfo.processInfo.arguments.contains("-uiPreviewChat") }
+    /// Open the chat list directly (the first tab is Contacts).
+    static var opensList: Bool { ProcessInfo.processInfo.arguments.contains("-uiPreviewList") }
 
     static let ownId = 1
     static let peerId = 42
