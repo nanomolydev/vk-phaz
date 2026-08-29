@@ -17,18 +17,19 @@ struct BlurView: UIViewRepresentable {
 }
 
 enum BarAppearance {
-    /// Translucent blurred nav/tab bars that the content shows through.
-    /// Set once at launch: SwiftUI's toolbarBackground(_:for:) only took a
-    /// ShapeStyle, and the material it produced read as a solid colour.
+    /// Fully transparent nav/tab bars, so the chat and the wallpaper show
+    /// through and only the floating glass controls sit on top. A bar
+    /// *background* — however thin — reads as a solid strip against a
+    /// wallpaper; the reference design has no strip at all.
     static func applyTranslucent() {
         let nav = UINavigationBarAppearance()
-        nav.configureWithDefaultBackground()          // system blur, not a fill
+        nav.configureWithTransparentBackground()
         UINavigationBar.appearance().standardAppearance = nav
         UINavigationBar.appearance().compactAppearance = nav
         UINavigationBar.appearance().scrollEdgeAppearance = nav
 
         let tab = UITabBarAppearance()
-        tab.configureWithDefaultBackground()
+        tab.configureWithTransparentBackground()
         UITabBar.appearance().standardAppearance = tab
         UITabBar.appearance().scrollEdgeAppearance = tab
     }

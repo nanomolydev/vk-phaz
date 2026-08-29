@@ -45,6 +45,7 @@ struct ChatView: View {
     @State private var editingTo: ChatMessage?
     @State private var atBottom = true
     @State private var didFirstScroll = false
+    @FocusState private var inputFocused: Bool
     @State private var selected: ChatMessage?
     @State private var pending: [PendingAttachment] = []
     @State private var error: String?
@@ -381,15 +382,10 @@ struct ChatView: View {
             if let error { Text(error).font(.caption).foregroundStyle(.red).padding(.horizontal) }
             inputBar
         }
-        .padding(.top, 10)
-        .background(alignment: .bottom) {
-            // No mask here: masking a Material forces an offscreen layer, which
-            // cuts it off from the backdrop it needs to sample — the blur silently
-            // degraded into a flat fill. Fade with an overlay instead.
-            BlurView()
-                .overlay(alignment: .top) { Divider() }
-                .ignoresSafeArea()
-        }
+        // No backdrop at all: the controls are floating glass and the wallpaper
+        // runs behind and between them. Any full-width panel here — material,
+        // blur or otherwise — is the "solid strip" that kept looking wrong.
+        .padding(.top, inputFocused ? 8 : 4)
     }
 
     private var attachmentTray: some View {
@@ -416,23 +412,30 @@ struct ChatView: View {
         }
     }
 
+    /// Round controls match the text pill, which is shorter until focused.
+    private var ctlSize: CGFloat { inputFocused ? 42 : 38 }
+
     private var inputBar: some View {
         HStack(spacing: 10) {
             Button { showAttach = true } label: {
                 Image(systemName: "paperclip").font(.title3).foregroundStyle(.secondary)
-                    .frame(width: 42, height: 42)
+                    .frame(width: ctlSize, height: ctlSize)
             }
             .glassEffect(in: Circle())
 
             HStack(spacing: 6) {
                 TextField("Сообщение", text: $draft, axis: .vertical)
+                    .focused($inputFocused)
                     .onChange(of: draft) { _ in sendTyping() }
                 Button { showStickers = true } label: {
                     Image(systemName: "face.smiling").font(.title3).foregroundStyle(.secondary)
                 }
             }
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .glassEffect(in: RoundedRectangle(cornerRadius: 22))
+            // Compact until you tap in — it grows for typing, like the reference.
+            .padding(.horizontal, 14)
+            .padding(.vertical, inputFocused ? 11 : 7)
+            .glassEffect(in: Capsule())
+            .animation(.snappy(duration: 0.2), value: inputFocused)
 
             if uploading {
                 ProgressView().frame(width: 42, height: 42)
@@ -451,7 +454,7 @@ struct ChatView: View {
                     Image(systemName: recorder.recording ? "stop.circle.fill" : "mic")
                         .font(.title3)
                         .foregroundStyle(recorder.recording ? .red : .secondary)
-                        .frame(width: 42, height: 42)
+                        .frame(width: ctlSize, height: ctlSize)
                         .glassEffect(in: Circle())
                 }
             } else {
