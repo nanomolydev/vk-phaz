@@ -431,11 +431,9 @@ struct ChatView: View {
                     Image(systemName: "face.smiling").font(.title3).foregroundStyle(.secondary)
                 }
             }
-            // Compact until you tap in — it grows for typing, like the reference.
             .padding(.horizontal, 14)
-            .padding(.vertical, inputFocused ? 11 : 7)
+            .padding(.vertical, inputFocused ? 10 : 8)
             .glassEffect(in: Capsule())
-            .animation(.snappy(duration: 0.2), value: inputFocused)
 
             if uploading {
                 ProgressView().frame(width: 42, height: 42)
@@ -466,7 +464,11 @@ struct ChatView: View {
                 }
             }
         }
-        .padding(.horizontal, 10).padding(.bottom, 6)
+        // The row sits inset with room at the sides at rest, then widens into
+        // that space when you tap in to write.
+        .padding(.horizontal, inputFocused ? 8 : 26)
+        .padding(.bottom, 6)
+        .animation(.snappy(duration: 0.22), value: inputFocused)
     }
 
     private func replyBanner(_ reply: ChatMessage) -> some View {
