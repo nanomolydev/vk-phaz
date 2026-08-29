@@ -56,9 +56,11 @@ struct ChatListView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             List {
                 ForEach(shown) { row in
                     NavigationLink(value: row) { rowView(row) }
+                        .id(row.peerId)
                         .listRowBackground(Color.clear)
                         .swipeActions(edge: .leading) {
                             Button {
@@ -129,8 +131,16 @@ struct ChatListView: View {
             }
             .overlay { if rows.isEmpty, let error { Text(error).foregroundStyle(.secondary).padding() } }
             .refreshable { await load() }
-            .task { await load() }
+            .task {
+                await load()
+                // Park the list mid-scroll for screenshots: rows only sit behind
+                // the header and tab bar once something has scrolled under them.
+                if PreviewMode.isOn, shown.count > 8 {
+                    proxy.scrollTo(shown[6].peerId, anchor: .top)
+                }
+            }
             .onChange(of: live.bump) { _ in Task { await load() } }
+            }
         }
     }
 

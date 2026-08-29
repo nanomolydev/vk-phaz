@@ -21,7 +21,7 @@ enum PreviewMode {
         guard isOn else { return }
         let now = Int(Date().timeIntervalSince1970)
 
-        let rows = (0..<12).map { i in
+        let rows = (0..<40).map { i in
             ChatRow(peerId: i == 0 ? peerId : 1000 + i,
                     title: names[i % names.count],
                     subtitle: previews[i % previews.count],
@@ -31,23 +31,35 @@ enum PreviewMode {
         }
         DiskCache.save(rows, as: "chats-\(ownId)")
 
+        // Long enough to fill the screen top to bottom — with a short chat
+        // there is nothing behind the bars, so translucency can't be judged.
         var msgs: [ChatMessage] = []
-        for (i, text) in sample.enumerated() {
+        let long = (0..<12).flatMap { _ in sample }
+        for (i, text) in long.enumerated() {
             let mine = i % 3 == 2
             msgs.append(ChatMessage(
                 msg: Msg(id: 100 + i,
                          from_id: mine ? ownId : peerId,
                          text: text,
-                         date: now - (sample.count - i) * 300,
+                         date: now - (long.count - i) * 300,
                          conversation_message_id: 100 + i),
                 senderName: mine ? "Тест Тестов" : "Салават",
                 senderAvatar: nil,
                 replyAuthor: nil))
         }
         DiskCache.save(msgs, as: "chat-\(peerId)")
+
+        let friends = (0..<40).map { i in
+            Profile(id: 2000 + i, first_name: names[i % names.count],
+                    last_name: surnames[i % surnames.count], online: i % 3)
+        }
+        DiskCache.save(friends, as: "friends-\(ownId)")
     }
 
-    private static let names = ["Салават", "Рита", "Эмиль", "Мама", "Работа", "Друзья"]
+    private static let names = ["Салават", "Рита", "Эмиль", "Мама", "Работа", "Друзья",
+                                "Артём", "Лена", "Ильдар", "Настя", "Тимур", "Оля"]
+    private static let surnames = ["Магасумов", "Гайнетдинов", "Иванов", "Петрова",
+                                   "Сидоров", "Ахметова"]
     private static let previews = ["Привет! Как дела?", "Ну ты видел вообще",
                                    "Ок, договорились", "🖼 Фото", "🎤 Голосовое"]
     private static let sample = [
@@ -72,5 +84,22 @@ extension Msg {
         self.reply_message = nil
         self.fwd_messages = nil
         self.reactions = nil
+    }
+}
+
+extension Profile {
+    /// Preview-only convenience; the real Profile is decoded from VK's JSON.
+    init(id: Int, first_name: String, last_name: String, online: Int) {
+        self.id = id
+        self.first_name = first_name
+        self.last_name = last_name
+        self.photo_100 = nil
+        self.photo_200 = nil
+        self.online = online == 0 ? 1 : 0
+        self.last_seen = nil
+        self.status = nil
+        self.screen_name = nil
+        self.city = nil
+        self.is_closed = nil
     }
 }
