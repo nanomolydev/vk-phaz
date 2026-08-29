@@ -33,7 +33,10 @@ jobs:
             sim-${{ runner.os }}-xc26-
 
       - name: Build for simulator
+        # No pipe to tail: it masks xcodebuild's exit status, and a failed build
+        # showed up later as a baffling "Missing bundle ID" at install time.
         run: |
+          set -o pipefail
           xcodebuild build \
             -project VKPhaz.xcodeproj -scheme VKPhaz \
             -configuration Debug -sdk iphonesimulator \
@@ -41,7 +44,8 @@ jobs:
             -derivedDataPath build-sim \
             -skipMacroValidation -skipPackagePluginValidation \
             COMPILER_INDEX_STORE_ENABLE=NO DEBUG_INFORMATION_FORMAT=dwarf \
-            CODE_SIGNING_ALLOWED=NO | tail -20
+            CODE_SIGNING_ALLOWED=NO 2>&1 | grep -E "error:|warning: .*never used|BUILD" | tail -30
+          ls -la build-sim/Build/Products/Debug-iphonesimulator/
 
       - name: Boot simulator and capture
         run: |
