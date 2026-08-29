@@ -83,6 +83,10 @@ struct ChatListView: View {
                                 onEdit: { editingFolder = $0 })
                 }
                 .padding(.bottom, 8)
+                // This header does need a backdrop — rows scroll underneath it,
+                // and without one the chat titles read straight through the
+                // search field and the folder chips.
+                .background(.bar)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

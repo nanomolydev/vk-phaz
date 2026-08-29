@@ -38,11 +38,11 @@ struct RootView: View {
     @ViewBuilder private var content: some View {
         if let vk = store.vk, let acc = store.active {
             TabView {
-                Tab("Чаты", systemImage: "bubble.left.and.bubble.right.fill") {
-                    ChatListView(vk: vk, ownId: acc.id)
-                }
                 Tab("Контакты", systemImage: "person.2.fill") {
                     ContactsView(vk: vk, ownId: acc.id)
+                }
+                Tab("Чаты", systemImage: "bubble.left.and.bubble.right.fill") {
+                    ChatListView(vk: vk, ownId: acc.id)
                 }
                 Tab("Настройки", systemImage: "gearshape.fill") {
                     SettingsView(vk: vk)
