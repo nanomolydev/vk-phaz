@@ -39,7 +39,7 @@ jobs:
           set -o pipefail
           xcodebuild build \
             -project VKPhaz.xcodeproj -scheme VKPhaz \
-            -configuration Debug -sdk iphonesimulator \
+            -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build-sim \
             -skipMacroValidation -skipPackagePluginValidation \
