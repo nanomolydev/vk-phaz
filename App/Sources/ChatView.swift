@@ -118,8 +118,12 @@ struct ChatView: View {
                 .safeAreaInset(edge: .bottom) { if searchMode { searchNavBar } else { bottomBar } }
         }
         .navigationBarTitleDisplayMode(.inline)
-        // Bar translucency comes from UINavigationBarAppearance (BarAppearance);
-        // toolbarBackground with a Material rendered as a solid colour here.
+        // .hidden, not a material: SwiftUI's own bars ignore the UIKit
+        // appearance proxies on iOS 26, and any background here draws the solid
+        // strip. The giveaway was the bottom going clear only once the keyboard
+        // lifted the row clear of the tab bar's backdrop.
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .tabBar)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -385,7 +389,7 @@ struct ChatView: View {
         // No backdrop at all: the controls are floating glass and the wallpaper
         // runs behind and between them. Any full-width panel here — material,
         // blur or otherwise — is the "solid strip" that kept looking wrong.
-        .padding(.top, inputFocused ? 8 : 4)
+        .padding(.top, 6)
     }
 
     private var attachmentTray: some View {
@@ -412,8 +416,9 @@ struct ChatView: View {
         }
     }
 
-    /// Round controls match the text pill, which is shorter until focused.
-    private var ctlSize: CGFloat { inputFocused ? 42 : 38 }
+    /// Fixed: like Telegram, focusing must not change the row's height — the
+    /// keyboard just pushes the chat up.
+    private let ctlSize: CGFloat = 40
 
     private var inputBar: some View {
         HStack(spacing: 10) {
@@ -432,7 +437,7 @@ struct ChatView: View {
                 }
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, inputFocused ? 10 : 8)
+            .padding(.vertical, 9)
             .glassEffect(in: Capsule())
 
             if uploading {

@@ -46,6 +46,7 @@ struct RootView: View {
                 }
             }
             .id(acc.id)
+            .toolbarBackground(.hidden, for: .tabBar)
             .onAppear { live.requestAuth(); live.start(vk: vk) }
             .onDisappear { live.stop() }
         } else {
