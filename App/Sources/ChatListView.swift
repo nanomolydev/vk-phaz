@@ -77,6 +77,7 @@ struct ChatListView: View {
             // by default — together they were the white slab showing through the
             // tab bar instead of the chats.
             .scrollContentBackground(.hidden)
+            .scrollEdgeEffectStyle(nil, for: .all)
             .safeAreaInset(edge: .top, spacing: 0) {
                 VStack(spacing: 8) {
                     searchField

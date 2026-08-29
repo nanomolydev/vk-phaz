@@ -282,6 +282,9 @@ struct ChatView: View {
             }
             .animation(.snappy, value: atBottom)
             .scrollDismissesKeyboard(.interactively)
+            // iOS 26 fades content out under the bars by default. That milky
+            // wash — sharp text bleached, not blurred — was the "solid strip".
+            .scrollEdgeEffectStyle(nil, for: .all)
             // Start already at the newest message instead of scrolling there.
             .defaultScrollAnchor(.bottom)
             .onChange(of: messages.count) { _ in
