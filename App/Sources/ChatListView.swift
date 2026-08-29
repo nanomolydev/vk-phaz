@@ -35,12 +35,18 @@ struct ChatListView: View {
     @State private var error: String?
     @State private var showOwnProfile = false
     @State private var pinsTick = 0
+    @State private var folders: [ChatFolder] = FolderStore.load()
+    @State private var selectedFolder: UUID?
+    @State private var editingFolder: ChatFolder?
 
     private var shown: [ChatRow] {
         _ = pinsTick
         let pins = Pins.get()
-        let f = query.isEmpty ? rows
+        var f = query.isEmpty ? rows
               : rows.filter { $0.title.localizedCaseInsensitiveContains(query) }
+        if let id = selectedFolder, let folder = folders.first(where: { $0.id == id }) {
+            f = f.filter { folder.peerIds.contains($0.peerId) }
+        }
         return f.sorted { a, b in
             let pa = pins.contains(a.peerId), pb = pins.contains(b.peerId)
             if pa != pb { return pa }
@@ -53,6 +59,7 @@ struct ChatListView: View {
             List {
                 ForEach(shown) { row in
                     NavigationLink(value: row) { rowView(row) }
+                        .listRowBackground(Color.clear)
                         .swipeActions(edge: .leading) {
                             Button {
                                 Pins.toggle(row.peerId); pinsTick += 1
@@ -64,12 +71,23 @@ struct ChatListView: View {
                 }
             }
             .listStyle(.plain)
-            // The List's own opaque background sat behind the tab bar, so
-            // nothing could show through it. Let the rows be the backdrop.
+            // Both the List background and each row's own background are opaque
+            // by default — together they were the white slab showing through the
+            // tab bar instead of the chats.
             .scrollContentBackground(.hidden)
-            .navigationTitle("Чаты")
-            .searchable(text: $query, prompt: "Поиск чатов")
+            .safeAreaInset(edge: .top, spacing: 0) {
+                VStack(spacing: 8) {
+                    searchField
+                    FolderStrip(folders: folders, selected: $selectedFolder,
+                                onAdd: { editingFolder = ChatFolder(name: "", peerIds: []) },
+                                onEdit: { editingFolder = $0 })
+                }
+                .padding(.bottom, 8)
+            }
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // Centred between the profile and bookmark buttons.
+                ToolbarItem(placement: .principal) { Text("Чаты").font(.headline) }
                 ToolbarItem(placement: .topBarLeading) {
                     Button { showOwnProfile = true } label: {
                         Image(systemName: "person.crop.circle")
@@ -88,11 +106,46 @@ struct ChatListView: View {
             .sheet(isPresented: $showOwnProfile) {
                 NavigationStack { ProfileView(vk: vk, userId: ownId, ownId: ownId) }
             }
+            .sheet(item: $editingFolder) { f in
+                FolderEditor(rows: rows, folder: f,
+                             onSave: { saved in
+                                 if let i = folders.firstIndex(where: { $0.id == saved.id }) {
+                                     folders[i] = saved
+                                 } else {
+                                     folders.append(saved)
+                                 }
+                                 FolderStore.save(folders)
+                             },
+                             onDelete: folders.contains(where: { $0.id == f.id }) ? {
+                                 folders.removeAll { $0.id == f.id }
+                                 if selectedFolder == f.id { selectedFolder = nil }
+                                 FolderStore.save(folders)
+                             } : nil)
+            }
             .overlay { if rows.isEmpty, let error { Text(error).foregroundStyle(.secondary).padding() } }
             .refreshable { await load() }
             .task { await load() }
             .onChange(of: live.bump) { _ in Task { await load() } }
         }
+    }
+
+    // Own field instead of .searchable: the system one left-aligns its text and
+    // tints the glyph, and neither can be overridden.
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Spacer(minLength: 0)
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField("Поиск чатов", text: $query)
+                .multilineTextAlignment(.center)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .fixedSize()
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity)
+        .background(.quaternary, in: Capsule())
+        .padding(.horizontal, 12)
     }
 
     private func rowView(_ row: ChatRow) -> some View {

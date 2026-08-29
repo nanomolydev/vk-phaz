@@ -41,6 +41,9 @@ struct RootView: View {
                 Tab("Чаты", systemImage: "bubble.left.and.bubble.right.fill") {
                     ChatListView(vk: vk, ownId: acc.id)
                 }
+                Tab("Контакты", systemImage: "person.2.fill") {
+                    ContactsView(vk: vk, ownId: acc.id)
+                }
                 Tab("Настройки", systemImage: "gearshape.fill") {
                     SettingsView(vk: vk)
                 }
