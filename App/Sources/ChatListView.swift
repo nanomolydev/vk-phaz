@@ -64,6 +64,9 @@ struct ChatListView: View {
                 }
             }
             .listStyle(.plain)
+            // The List's own opaque background sat behind the tab bar, so
+            // nothing could show through it. Let the rows be the backdrop.
+            .scrollContentBackground(.hidden)
             .navigationTitle("Чаты")
             .searchable(text: $query, prompt: "Поиск чатов")
             .toolbar {

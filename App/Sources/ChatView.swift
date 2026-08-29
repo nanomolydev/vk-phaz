@@ -117,10 +117,8 @@ struct ChatView: View {
                 .safeAreaInset(edge: .bottom) { if searchMode { searchNavBar } else { bottomBar } }
         }
         .navigationBarTitleDisplayMode(.inline)
-        // Without an explicit background the messages scrolled under the bar
-        // stayed razor sharp; this is the frosted strip they pass behind.
-        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        // Bar translucency comes from UINavigationBarAppearance (BarAppearance);
+        // toolbarBackground with a Material rendered as a solid colour here.
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -388,11 +386,7 @@ struct ChatView: View {
             // No mask here: masking a Material forces an offscreen layer, which
             // cuts it off from the backdrop it needs to sample — the blur silently
             // degraded into a flat fill. Fade with an overlay instead.
-            // ultraThin, not regular: regular is opaque enough to read as a
-            // flat slab. The blur works now that the gradient mask (which
-            // disabled it) is gone, so the thin material actually shows the
-            // messages through it.
-            Rectangle().fill(.ultraThinMaterial)
+            BlurView()
                 .overlay(alignment: .top) { Divider() }
                 .ignoresSafeArea()
         }

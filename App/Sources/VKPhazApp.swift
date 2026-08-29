@@ -7,6 +7,8 @@ struct VKPhazApp: App {
     @AppStorage("accentHex") private var accentHex = "#3A8DFF"
     @AppStorage("appearance") private var appearance = 0
 
+    init() { BarAppearance.applyTranslucent() }
+
     private var accent: Color { Color(hex: accentHex) ?? .blue }
     private var scheme: ColorScheme? {
         switch appearance { case 1: return .light; case 2: return .dark; default: return nil }
