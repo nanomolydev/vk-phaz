@@ -18,7 +18,7 @@ struct AvatarView: View {
             }
             .frame(width: size, height: size).clipShape(Circle())
             if online {
-                Circle().fill(.green)
+                Circle().fill(TG.onlineDot)
                     .frame(width: size * 0.28, height: size * 0.28)
                     .overlay(Circle().stroke(Color(.systemBackground), lineWidth: size * 0.06))
             }
@@ -96,7 +96,7 @@ struct ChatListView: View {
                 .padding(.bottom, 2)
                 .background(Color(.systemBackground))
                 .overlay(alignment: .bottom) {
-                    Rectangle().fill(Color(.separator).opacity(0.35)).frame(height: 0.5)
+                    Rectangle().fill(TG.separator).frame(height: 0.5)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -167,7 +167,7 @@ struct ChatListView: View {
         }
         .padding(.vertical, 7)
         .frame(maxWidth: .infinity)
-        .background(Color(.secondarySystemFill), in: RoundedRectangle(cornerRadius: 10))
+        .background(TG.searchBar, in: RoundedRectangle(cornerRadius: 10))
         .padding(.horizontal, 12)
     }
 
@@ -182,18 +182,19 @@ struct ChatListView: View {
                 HStack(spacing: 4) {
                     Text(row.title)
                         .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(TG.title)
                         .lineLimit(1)
                     if Mutes.has(row.peerId) {
                         Image(systemName: "speaker.slash.fill")
-                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                            .font(.system(size: 12)).foregroundStyle(TG.muteIcon)
                     }
                     Spacer(minLength: 4)
                     Text(shortTime(row.date))
-                        .font(.system(size: 15)).foregroundStyle(.secondary)
+                        .font(.system(size: 15)).foregroundStyle(TG.dateText)
                 }
                 HStack(spacing: 6) {
                     Text(row.subtitle)
-                        .font(.system(size: 15)).foregroundStyle(.secondary)
+                        .font(.system(size: 15)).foregroundStyle(TG.messageText)
                         .lineLimit(1)
                     Spacer(minLength: 4)
                     if row.unread > 0 {
@@ -202,11 +203,11 @@ struct ChatListView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6).padding(.vertical, 1)
                             .frame(minWidth: 20)
-                            .background(Mutes.has(row.peerId) ? Color.secondary : Color.accentColor,
+                            .background(Mutes.has(row.peerId) ? TG.badgeInactive : TG.badgeActive,
                                         in: Capsule())
                     } else if Pins.has(row.peerId) {
                         Image(systemName: "pin.fill")
-                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                            .font(.system(size: 12)).foregroundStyle(TG.pinnedBadge)
                             .rotationEffect(.degrees(45))
                     }
                 }
@@ -214,7 +215,7 @@ struct ChatListView: View {
         }
         .frame(height: 66)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color(.separator).opacity(0.5))
+            Rectangle().fill(TG.separator)
                 .frame(height: 0.5)
                 .padding(.leading, 66)
         }

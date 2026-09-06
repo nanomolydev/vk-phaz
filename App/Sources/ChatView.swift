@@ -792,16 +792,17 @@ struct MessageRow: View {
                 }
                 Text(hhmm(msg.date))
                     .font(.caption2)
-                    .foregroundStyle(mine ? Color.white.opacity(0.75) : Color.secondary)
+                    .foregroundStyle(mine ? TG.outgoingText.opacity(0.55) : TG.dateText)
                 if mine { ReadTicks(read: msg.id <= readUpTo) }
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 7)
         .background {
-            if mine { bubbleShape.fill(Color.accentColor.gradient) }
-            else { bubbleShape.fill(Color(.secondarySystemBackground)) }
+            if mine { bubbleShape.fill(LinearGradient(colors: TG.outgoingFill,
+                                                      startPoint: .top, endPoint: .bottom)) }
+            else { bubbleShape.fill(TG.incomingBubble) }
         }
-        .foregroundStyle(mine ? .white : .primary)
+        .foregroundStyle(mine ? TG.outgoingText : TG.incomingText)
     }
 
     private func reactionsRow(_ rs: [Msg.Reaction]) -> some View {
