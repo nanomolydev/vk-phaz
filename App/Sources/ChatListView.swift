@@ -88,13 +88,9 @@ struct ChatListView: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 VStack(spacing: 8) {
                     searchField
-                    // Its own floating pill, detached from the screen edge.
                     FolderStrip(folders: folders, selected: $selectedFolder,
                                 onAdd: { editingFolder = ChatFolder(name: "", peerIds: []) },
                                 onEdit: { editingFolder = $0 })
-                        .padding(.vertical, 4)
-                        .background(.regularMaterial, in: Capsule())
-                        .padding(.horizontal, 12)
                 }
                 .padding(.top, 4)
                 .padding(.bottom, 8)
@@ -195,7 +191,15 @@ struct ChatListView: View {
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 4)
-                    if Pins.has(row.peerId) {
+                    if row.unread > 0 {
+                        Text(row.unread > 999 ? "999+" : "\(row.unread)")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .frame(minWidth: 22)
+                            .background(Mutes.has(row.peerId) ? Color.secondary : Color.accentColor,
+                                        in: Capsule())
+                    } else if Pins.has(row.peerId) {
                         Image(systemName: "pin.fill")
                             .font(.caption2).foregroundStyle(.secondary)
                             .rotationEffect(.degrees(45))

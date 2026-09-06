@@ -27,7 +27,8 @@ enum PreviewMode {
                     subtitle: previews[i % previews.count],
                     date: now - i * 3600,
                     avatar: nil,
-                    online: i % 3 == 0)
+                    online: i % 3 == 0,
+                    unread: i % 4 == 0 ? (i + 1) * 3 : 0)
         }
         DiskCache.save(rows, as: "chats-\(ownId)")
 

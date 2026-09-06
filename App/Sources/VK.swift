@@ -162,6 +162,7 @@ struct Conversations: Decodable {
 struct ConvItem: Decodable { let conversation: Conv; let last_message: Msg? }
 struct Conv: Decodable {
     let peer: Peer
+    let unread_count: Int?
     let chat_settings: ChatSettings?
     let push_settings: PushSettings?
     struct PushSettings: Decodable {
@@ -212,6 +213,7 @@ struct ChatRow: Identifiable, Hashable, Codable {
     let date: Int
     let avatar: URL?
     let online: Bool
+    var unread: Int = 0
     var isChat: Bool { peerId >= 2_000_000_000 }
     var id: Int { peerId }
     static func == (a: ChatRow, b: ChatRow) -> Bool { a.peerId == b.peerId }
@@ -314,7 +316,8 @@ struct VK {
             return ChatRow(peerId: peer.id, title: title,
                            subtitle: item.last_message?.preview ?? "",
                            date: item.last_message?.date ?? 0,
-                           avatar: avatar, online: onlineIds.contains(peer.id))
+                           avatar: avatar, online: onlineIds.contains(peer.id),
+                           unread: item.conversation.unread_count ?? 0)
         }
     }
 
