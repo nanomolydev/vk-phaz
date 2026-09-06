@@ -92,8 +92,8 @@ struct ChatListView: View {
                                 onAdd: { editingFolder = ChatFolder(name: "", peerIds: []) },
                                 onEdit: { editingFolder = $0 })
                 }
-                .padding(.top, 4)
-                .padding(.bottom, 8)
+                .padding(.top, 2)
+                .padding(.bottom, 2)
                 .background(Color(.systemBackground))
                 .overlay(alignment: .bottom) {
                     Rectangle().fill(Color(.separator).opacity(0.35)).frame(height: 0.5)
@@ -165,53 +165,54 @@ struct ChatListView: View {
                 .fixedSize()
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 9)
+        .padding(.vertical, 7)
         .frame(maxWidth: .infinity)
         .background(Color(.secondarySystemFill), in: RoundedRectangle(cornerRadius: 10))
         .padding(.horizontal, 12)
     }
 
-    // Telegram-shaped row: 60pt avatar, name and a two-line preview, time and
-    // badge stacked on the trailing edge, separator inset past the avatar.
+    // Constant-height row: a 54pt avatar centred against a two-line text block.
+    // Top alignment made the avatar hang below the text, so its online dot cut
+    // through the separator, and a two-line preview made rows uneven.
     private func rowView(_ row: ChatRow) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(spacing: 12) {
             AvatarView(url: row.avatar, name: row.title, id: row.peerId,
                        size: 54, online: row.online)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 4) {
-                    Text(row.title).font(.system(size: 17, weight: .semibold)).lineLimit(1)
+                    Text(row.title)
+                        .font(.system(size: 17, weight: .semibold))
+                        .lineLimit(1)
                     if Mutes.has(row.peerId) {
                         Image(systemName: "speaker.slash.fill")
-                            .font(.caption2).foregroundStyle(.secondary)
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 4)
                     Text(shortTime(row.date))
                         .font(.system(size: 15)).foregroundStyle(.secondary)
                 }
-                HStack(alignment: .top, spacing: 6) {
+                HStack(spacing: 6) {
                     Text(row.subtitle)
                         .font(.system(size: 15)).foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(1)
                     Spacer(minLength: 4)
                     if row.unread > 0 {
                         Text(row.unread > 999 ? "999+" : "\(row.unread)")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(.white)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .frame(minWidth: 22)
+                            .padding(.horizontal, 6).padding(.vertical, 1)
+                            .frame(minWidth: 20)
                             .background(Mutes.has(row.peerId) ? Color.secondary : Color.accentColor,
                                         in: Capsule())
                     } else if Pins.has(row.peerId) {
                         Image(systemName: "pin.fill")
-                            .font(.caption2).foregroundStyle(.secondary)
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
                             .rotationEffect(.degrees(45))
                     }
                 }
             }
-            .padding(.top, 2)
         }
-        .padding(.vertical, 5)
+        .frame(height: 66)
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color(.separator).opacity(0.5))
                 .frame(height: 0.5)
