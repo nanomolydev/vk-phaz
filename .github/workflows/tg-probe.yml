@@ -1,0 +1,72 @@
+name: Telegram build probe
+
+# One-off experiment: can Telegram-iOS itself be built here? If it can, keeping
+# their UI and feeding it VK data is a real option. If it can't, that path is
+# closed and we stop discussing it.
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: macos-15
+    timeout-minutes: 300
+    steps:
+      - name: Machine facts
+        run: |
+          sw_vers
+          df -h / | tail -1
+          sysctl -n hw.ncpu hw.memsize
+          ls -d /Applications/Xcode*.app
+
+      - name: Clone Telegram-iOS
+        run: |
+          time git clone --depth 1 https://github.com/TelegramMessenger/Telegram-iOS.git tg
+          du -sh tg
+
+      - name: Select Xcode 26
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+
+      - name: Configuration
+        working-directory: tg
+        run: |
+          # Dummy credentials: we only care whether it compiles, not whether it
+          # can reach Telegram's servers.
+          cat > /tmp/cfg.json <<EOF
+          {
+            "bundle_id": "org.vkphazprobe.Telegram",
+            "api_id": "1",
+            "api_hash": "0123456789abcdef0123456789abcdef",
+            "team_id": "0000000000",
+            "app_center_id": "0",
+            "is_internal_build": "true",
+            "is_appstore_build": "false",
+            "appstore_id": "0",
+            "app_specific_url_scheme": "tg",
+            "premium_iap_product_id": "",
+            "enable_siri": false,
+            "enable_icloud": false
+          }
+          EOF
+          cat /tmp/cfg.json
+
+      - name: Build for the simulator
+        working-directory: tg
+        run: |
+          set -o pipefail
+          python3 build-system/Make/Make.py \
+            --cacheDir="$HOME/tg-bazel-cache" \
+            build \
+            --configurationPath=/tmp/cfg.json \
+            --xcodeManagedCodesigning \
+            --buildNumber=1 \
+            --configuration=debug_sim_arm64 2>&1 | tail -120
+
+      - name: What came out
+        if: always()
+        working-directory: tg
+        run: |
+          df -h / | tail -1
+          find . -name "*.app" -maxdepth 6 2>/dev/null | head
