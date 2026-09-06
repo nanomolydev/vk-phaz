@@ -262,9 +262,9 @@ struct ChatView: View {
                         if let day = pair.day { dayChip(day) }
                         MessageRow(cm: pair.cm, mine: pair.cm.msg.from_id == ownId,
                                    isChat: isChat, readUpTo: outRead,
-                                   tailed: isLastOfRun(pair.cm),
                                    highlighted: highlightId == pair.cm.id,
                                    overrideText: secretText[pair.cm.id],
+                                   tailed: isLastOfRun(pair.cm),
                                    onOpenImage: { viewerURL = IdURL(url: $0) })
                             .id(pair.cm.id)
                             .onLongPressGesture { selected = pair.cm }
