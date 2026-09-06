@@ -59,7 +59,12 @@ struct ChatListView: View {
             ScrollViewReader { proxy in
             List {
                 ForEach(shown) { row in
-                    NavigationLink(value: row) { rowView(row) }
+                    ZStack(alignment: .leading) {
+                        // NavigationLink insists on a disclosure chevron; the
+                        // reference has none, so keep the link invisible.
+                        NavigationLink(value: row) { EmptyView() }.opacity(0)
+                        rowView(row)
+                    }
                         .id(row.peerId)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
@@ -93,6 +98,7 @@ struct ChatListView: View {
                 }
                 .padding(.top, 4)
                 .padding(.bottom, 8)
+                .background(.bar)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -171,7 +177,7 @@ struct ChatListView: View {
     private func rowView(_ row: ChatRow) -> some View {
         HStack(alignment: .top, spacing: 12) {
             AvatarView(url: row.avatar, name: row.title, id: row.peerId,
-                       size: 60, online: row.online)
+                       size: 54, online: row.online)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(row.title).font(.system(size: 17, weight: .semibold)).lineLimit(1)
@@ -198,9 +204,11 @@ struct ChatListView: View {
             }
             .padding(.top, 2)
         }
-        .padding(.vertical, 6)
-        .overlay(alignment: .bottomLeading) {
-            Divider().padding(.leading, 72)
+        .padding(.vertical, 5)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color(.separator).opacity(0.5))
+                .frame(height: 0.5)
+                .padding(.leading, 66)
         }
     }
 
