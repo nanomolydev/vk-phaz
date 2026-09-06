@@ -45,13 +45,13 @@ struct ChatView: View {
     @State private var editingTo: ChatMessage?
     @State private var atBottom = true
     @State private var didFirstScroll = false
+    @State private var muteTick = 0
     @FocusState private var inputFocused: Bool
     @State private var selected: ChatMessage?
     @State private var pending: [PendingAttachment] = []
     @State private var error: String?
     @State private var peerProfile: Profile?
     @State private var showProfile = false
-    @State private var showAI = false
     @State private var showAttach = false
     @State private var searchMode = false
     @State private var searchText = ""
@@ -133,6 +133,12 @@ struct ChatView: View {
                     Button { withAnimation { searchMode = true } } label: {
                         Label("Поиск в чате", systemImage: "magnifyingglass")
                     }
+                    Button {
+                        Mutes.toggle(peerId); muteTick += 1
+                    } label: {
+                        Label(Mutes.has(peerId) ? "Включить уведомления" : "Отключить уведомления",
+                              systemImage: Mutes.has(peerId) ? "bell" : "bell.slash")
+                    }
                     Button { showWallpaperPicker = true } label: { Label("Обои чата", systemImage: "photo") }
                     if Wallpaper.hasImage(peer: peerId) {
                         Button(role: .destructive) {
@@ -147,7 +153,8 @@ struct ChatView: View {
                     }
                 } label: {
                     VStack(spacing: 1) {
-                        Text((secretOn ? "🔒 " : "") + title).font(.headline).foregroundStyle(.primary)
+                        let _ = muteTick
+                        Text((Mutes.has(peerId) ? "🔕 " : "") + (secretOn ? "🔒 " : "") + title).font(.headline).foregroundStyle(.primary)
                         let sub = secretOn && !secretStatus.isEmpty ? secretStatus : subtitle
                         if !sub.isEmpty {
                             Text(sub).font(.caption2)
@@ -200,7 +207,6 @@ struct ChatView: View {
         .sheet(isPresented: $showProfile) {
             NavigationStack { ProfileView(vk: vk, userId: peerId, ownId: ownId) }
         }
-        .sheet(isPresented: $showAI) { AISheet(vk: vk, peerId: peerId) }
         .sheet(isPresented: $showSecretSetup) {
             SecretSetupView(peer: peerId, title: title) { await connectSecret() }
         }
@@ -315,7 +321,6 @@ struct ChatView: View {
             if searching { ProgressView() }
             Button { Task { await runSearch() } } label: { Text("Найти") }
                 .disabled(searchText.trimmingCharacters(in: .whitespaces).isEmpty)
-            Button { showAI = true } label: { Image(systemName: "sparkles") }
             Button("Отмена") { closeSearch() }
         }
         .padding(.horizontal, 12).padding(.vertical, 8)

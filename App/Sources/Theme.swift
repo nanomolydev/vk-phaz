@@ -32,6 +32,28 @@ enum Pins {
     static func has(_ peer: Int) -> Bool { get().contains(peer) }
 }
 
+// Chats the user muted. Also fed from VK's own push_settings so a chat muted
+// in the official client stays quiet here.
+enum Mutes {
+    static let key = "muted_peers"
+    static func get() -> Set<Int> {
+        Set((UserDefaults.standard.string(forKey: key) ?? "")
+            .split(separator: ",").compactMap { Int($0) })
+    }
+    private static func store(_ s: Set<Int>) {
+        UserDefaults.standard.set(s.map(String.init).joined(separator: ","), forKey: key)
+    }
+    static func toggle(_ peer: Int) {
+        var s = get()
+        if s.contains(peer) { s.remove(peer) } else { s.insert(peer) }
+        store(s)
+    }
+    static func has(_ peer: Int) -> Bool { get().contains(peer) }
+
+    /// Merge what VK reports as muted, keeping anything muted locally.
+    static func merge(fromVK peers: Set<Int>) { store(get().union(peers)) }
+}
+
 // Deterministic avatar tint for placeholder circles.
 func avatarTint(for id: Int) -> Color {
     let palette: [Color] = [.blue, .purple, .pink, .orange, .green, .teal, .indigo, .red]

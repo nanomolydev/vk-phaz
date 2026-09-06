@@ -40,7 +40,6 @@ struct SettingsView: View {
                     NavigationLink { AppearanceSettings() } label: { row("Оформление", "paintbrush.fill", .pink) }
                     NavigationLink { WallpaperSettings() } label: { row("Обои чатов", "photo.fill", .teal) }
                     NavigationLink { NotificationSettings() } label: { row("Уведомления", "bell.fill", .red) }
-                    NavigationLink { AISettings() } label: { row("Нейросеть", "sparkles", .purple) }
                     NavigationLink { UpdateSettings() } label: {
                         HStack {
                             row("Обновление", "arrow.down.circle.fill", .green)
@@ -194,85 +193,5 @@ struct NotificationSettings: View {
         status = "Отключаю…"
         do { try await NotifierServer.unregister(vkToken: token); serverOn = false; status = "Выключено" }
         catch { status = "Ошибка отключения" }
-    }
-}
-
-struct AISettings: View {
-    @StateObject private var local = LocalLLM.shared
-    @AppStorage("aiProvider") private var providerRaw = ""
-    @AppStorage("openrouter_model") private var orModel = "openai/gpt-4o-mini"
-    @State private var geminiKey = Keychain.get("gemini_key") ?? ""
-    @State private var orKey = Keychain.get("openrouter_key") ?? ""
-
-    var body: some View {
-        List {
-            Section {
-                Picker("Провайдер", selection: $providerRaw) {
-                    Text("Авто (\(AIEngine.autoDefault.title))").tag("")
-                    ForEach(AIProvider.allCases) { Text($0.title).tag($0.rawValue) }
-                }
-            } header: { Text("Что использовать") }
-            footer: { Text("«Авто» само берёт лучшее из доступного: локальная → Apple → Gemini → OpenRouter.") }
-
-            Section {
-                ForEach(LocalLLM.catalog) { m in modelRow(m) }
-            } header: { Text("Локальные модели (на любом телефоне)") }
-            footer: { Text("Работают без интернета, ключей и лимитов, данные не уходят. Больше параметров — умнее, но тяжелее и медленнее.") }
-
-            if AIEngine.onDeviceReady {
-                Section { Label("Apple Intelligence доступна", systemImage: "apple.logo") }
-            }
-
-            Section {
-                SecureField("Gemini API-ключ", text: $geminiKey)
-                    .autocorrectionDisabled().textInputAutocapitalization(.never)
-                    .onChange(of: geminiKey) { _ in Keychain.set(geminiKey, for: "gemini_key") }
-            } header: { Text("Gemini") } footer: { Text("Ключ с aistudio.google.com.") }
-
-            Section {
-                SecureField("OpenRouter API-ключ", text: $orKey)
-                    .autocorrectionDisabled().textInputAutocapitalization(.never)
-                    .onChange(of: orKey) { _ in Keychain.set(orKey, for: "openrouter_key") }
-                TextField("Модель (напр. openai/gpt-4o-mini)", text: $orModel)
-                    .autocorrectionDisabled().textInputAutocapitalization(.never)
-            } header: { Text("OpenRouter") }
-            footer: { Text("Ключ с openrouter.ru/openrouter.ai. Доступ к десяткам моделей (в т.ч. бесплатным). Текст чата уходит на их серверы.") }
-        }
-        .navigationTitle("Нейросеть").navigationBarTitleDisplayMode(.inline)
-    }
-
-    @ViewBuilder private func modelRow(_ m: LocalModel) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(m.name).font(.body)
-                    Text("~\(m.sizeMB) МБ · \(m.fitLabel)")
-                        .font(.caption).foregroundStyle(m.fits ? Color.secondary : Color.orange)
-                }
-                Spacer()
-                if local.isDownloaded(m.id) {
-                    if local.activeId == m.id {
-                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                    } else {
-                        Button("Выбрать") { local.setActive(m.id) }
-                    }
-                } else if local.downloadingId == m.id {
-                    EmptyView()
-                } else {
-                    Button { local.download(m) } label: { Image(systemName: "arrow.down.circle") }
-                        .disabled(local.downloadingId != nil)
-                }
-            }
-            if local.downloadingId == m.id {
-                ProgressView(value: local.progress)
-                Text("\(Int(local.progress * 100))%  ·  \(local.speed)")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if local.isDownloaded(m.id) {
-                Button(role: .destructive) { local.delete(m.id) } label: {
-                    Text("Удалить").font(.caption)
-                }
-            }
-        }
     }
 }

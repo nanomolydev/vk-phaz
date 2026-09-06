@@ -163,6 +163,17 @@ struct ConvItem: Decodable { let conversation: Conv; let last_message: Msg? }
 struct Conv: Decodable {
     let peer: Peer
     let chat_settings: ChatSettings?
+    let push_settings: PushSettings?
+    struct PushSettings: Decodable {
+        let disabled_until: Int?
+        let disabled_forever: Bool?
+        /// VK uses -1 for "forever"; otherwise a unix time the mute runs to.
+        var isMuted: Bool {
+            if disabled_forever == true { return true }
+            guard let u = disabled_until else { return false }
+            return u == -1 || Double(u) > Date().timeIntervalSince1970
+        }
+    }
     struct ChatSettings: Decodable {
         let title: String?
         let photo: Ph?
@@ -285,6 +296,8 @@ struct VK {
         let c: Conversations = try await call("messages.getConversations",
             ["extended": "1", "count": "100", "fields": "photo_100,online"])
         let (names, avatars) = directory(c.profiles, c.groups)
+        Mutes.merge(fromVK: Set(c.items.filter { $0.conversation.push_settings?.isMuted == true }
+                                        .map { $0.conversation.peer.id }))
         let onlineIds = Set((c.profiles ?? []).filter { $0.online == 1 }.map { $0.id })
         return c.items.map { item in
             let peer = item.conversation.peer
@@ -525,5 +538,72 @@ struct VK {
 
     func longPollServer() async throws -> LongPollServer {
         try await call("messages.getLongPollServer", ["lp_version": "3", "need_pts": "0"])
+    }
+}
+
+// MARK: - Wall
+
+struct WallPost: Decodable, Identifiable, Codable {
+    let id: Int
+    let date: Int
+    let text: String
+    var likes: Count?
+    var comments: Count?
+    var reposts: Count?
+    var views: Count?
+    @Lossy var attachments: [Attachment]
+    var copy_history: [WallPost]?
+
+    struct Count: Codable { let count: Int }
+
+    enum K: String, CodingKey {
+        case id, date, text, likes, comments, reposts, views, attachments, copy_history
+    }
+
+    // Same lenience as messages: one odd post must not empty the wall.
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: K.self)
+        id = try c.decodeIfPresent(Int.self, forKey: .id) ?? 0
+        date = try c.decodeIfPresent(Int.self, forKey: .date) ?? 0
+        text = try c.decodeIfPresent(String.self, forKey: .text) ?? ""
+        likes = try? c.decodeIfPresent(Count.self, forKey: .likes)
+        comments = try? c.decodeIfPresent(Count.self, forKey: .comments)
+        reposts = try? c.decodeIfPresent(Count.self, forKey: .reposts)
+        views = try? c.decodeIfPresent(Count.self, forKey: .views)
+        _attachments = try c.decode(Lossy<Attachment>.self, forKey: .attachments)
+        copy_history = try c.decodeIfPresent(Lossy<WallPost>.self, forKey: .copy_history)?.wrappedValue
+    }
+
+    /// Reposts carry their body in copy_history — show that when the post itself is empty.
+    var displayText: String { text.isEmpty ? (copy_history?.first?.text ?? "") : text }
+    var photos: [URL] {
+        let own = attachments + (copy_history?.first?.attachments ?? [])
+        return own.compactMap { a in
+            a.photo?.sizes.max(by: { $0.width < $1.width }).flatMap { URL(string: $0.url) }
+        }
+    }
+}
+
+private struct WallResponse: Decodable {
+    let count: Int?
+    @Lossy var items: [WallPost]
+}
+
+extension VK {
+    func wall(ownerId: Int, count: Int = 30) async throws -> [WallPost] {
+        let r: WallResponse = try await call("wall.get",
+            ["owner_id": String(ownerId), "count": String(count), "extended": "0"])
+        return r.items
+    }
+
+    func photos(ownerId: Int, count: Int = 60) async throws -> [URL] {
+        // photos.getAll items carry `sizes` directly, not a wall attachment.
+        struct Item: Decodable { @Lossy var sizes: [AttachmentImage] }
+        struct Resp: Decodable { @Lossy var items: [Item] }
+        let r: Resp = try await call("photos.getAll",
+            ["owner_id": String(ownerId), "count": String(count), "photo_sizes": "1"])
+        return r.items.compactMap { item in
+            item.sizes.max(by: { $0.width < $1.width }).flatMap { URL(string: $0.url) }
+        }
     }
 }
