@@ -49,6 +49,7 @@ struct ChatView: View {
     @State private var selecting = false
     @State private var picked: Set<Int> = []          // conversation_message_ids
     @State private var forwardTarget = false
+    @State private var pinned: Msg?
     @FocusState private var inputFocused: Bool
     @State private var selected: ChatMessage?
     @State private var pending: [PendingAttachment] = []
@@ -126,7 +127,10 @@ struct ChatView: View {
         ZStack {
             WallpaperBackground(peerId: peerId, refresh: wpRefresh)
             messageList
-                .safeAreaInset(edge: .top) { if searchMode { searchBar } }
+                .safeAreaInset(edge: .top) {
+                    if searchMode { searchBar }
+                    else if let p = pinned { pinnedBanner(p) }
+                }
                 .safeAreaInset(edge: .bottom) {
                     if searchMode { searchNavBar }
                     else if selecting { selectionBar }
@@ -422,11 +426,13 @@ struct ChatView: View {
         Task { await load() }
     }
 
-    private func dayChip(_ day: String) -> some View {
-        Text(day)
-            .font(.caption.weight(.medium))
+    private func dayChip(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(.white)
             .padding(.horizontal, 10).padding(.vertical, 4)
-            .background(.ultraThinMaterial, in: Capsule())
+            .background(Color.black.opacity(0.25), in: Capsule())
+            .frame(maxWidth: .infinity)
             .padding(.vertical, 6)
     }
 
@@ -529,6 +535,28 @@ struct ChatView: View {
         .animation(.snappy(duration: 0.22), value: inputFocused)
     }
 
+    // Pinned message strip: accent rail, label and one line of the message,
+    // tapping jumps to it. Pinning existed but was never shown anywhere.
+    private func pinnedBanner(_ p: Msg) -> some View {
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 1).fill(TG.accent).frame(width: 2, height: 30)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Закреплённое сообщение")
+                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(TG.accent)
+                Text(p.preview).font(.system(size: 14)).foregroundStyle(TG.messageText)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Button { pinned = nil } label: {
+                Image(systemName: "xmark").font(.system(size: 13)).foregroundStyle(TG.dateText)
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 6)
+        .background(.bar)
+        .contentShape(Rectangle())
+        .onTapGesture { highlightId = p.id }
+    }
+
     private var selectionBar: some View {
         HStack(spacing: 18) {
             Button("Отмена") { selecting = false; picked = [] }
@@ -613,6 +641,7 @@ struct ChatView: View {
             messages = try await vk.history(peerId: peerId)
             DiskCache.save(messages.suffix(60).map { $0 }, as: "chat-\(peerId)")
             outRead = (try? await vk.outRead(peerId: peerId)) ?? outRead
+            pinned = try? await vk.pinnedMessage(peerId: peerId)
             processSecret()
             error = nil
         }
@@ -785,15 +814,17 @@ struct MessageRow: View {
     private var msg: Msg { cm.msg }
     private var shownText: String { overrideText ?? msg.text }
 
+    // Telegram's chatBubbleCorners: mainRadius 16, auxiliaryRadius 8 for the
+    // corner shared with the next bubble in a run. The tail corner only rounds
+    // down on the last bubble.
     private var bubbleShape: UnevenRoundedRectangle {
-        // Telegram: 17pt all round, tail corner tightened to 6 only on the last
-        // bubble of a run so grouped messages read as one block.
-        let tail: CGFloat = tailed ? 6 : 17
+        let main: CGFloat = 16, aux: CGFloat = 8
+        let tail: CGFloat = tailed ? aux : main
         return UnevenRoundedRectangle(cornerRadii: .init(
-            topLeading: 17,
-            bottomLeading: mine ? 17 : tail,
-            bottomTrailing: mine ? tail : 17,
-            topTrailing: 17))
+            topLeading: main,
+            bottomLeading: mine ? main : tail,
+            bottomTrailing: mine ? tail : main,
+            topTrailing: main))
     }
 
     var body: some View {
@@ -833,22 +864,41 @@ struct MessageRow: View {
     private var bubble: some View {
         VStack(alignment: .leading, spacing: 5) {
             if isChat && !mine {
-                Text(cm.senderName).font(.caption.bold()).foregroundStyle(avatarTint(for: msg.from_id))
+                Text(cm.senderName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(avatarTint(for: msg.from_id))
             }
             if let r = msg.reply_message {
-                HStack(spacing: 6) {
-                    Rectangle().fill(mine ? Color.white : Color.accentColor).frame(width: 3)
+                // Reply block: 2pt accent rail, author semibold 14, one line of
+                // quoted text at 14 — the shape used inside their bubbles.
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(mine ? TG.outgoingText.opacity(0.6) : TG.accent)
+                        .frame(width: 2)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(cm.replyAuthor ?? "").font(.caption.bold())
-                        Text(r.text.isEmpty ? "Вложение" : r.text).font(.caption).lineLimit(2)
+                        Text(cm.replyAuthor ?? "")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(mine ? TG.outgoingText : TG.accent)
+                        Text(r.text.isEmpty ? "Вложение" : r.text)
+                            .font(.system(size: 14))
+                            .lineLimit(1)
                     }
                     Spacer(minLength: 0)
                 }
-                // The accent bar is a Shape, so it swallows every point of height
-                // the VStack offers — that's what blew the quote up to bubble size.
+                // The rail is a Shape and would otherwise eat the whole height.
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(6)
-                .background(.black.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+                .padding(.vertical, 1)
+            }
+            if let fwd = msg.fwd_messages?.first {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Пересланное сообщение")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(mine ? TG.outgoingText.opacity(0.8) : TG.accent)
+                    if !fwd.text.isEmpty {
+                        Text(fwd.text).font(.system(size: 14)).lineLimit(3)
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
             }
             if let photo = msg.photoURL {
                 CachedImage(url: photo)
@@ -862,15 +912,17 @@ struct MessageRow: View {
                 // Without fixedSize the HStack hands the text an ideal height and
                 // clips the overflow — long messages ended in "…" mid-sentence.
                 if !shownText.isEmpty {
-                    Text(shownText).fixedSize(horizontal: false, vertical: true)
+                    Text(shownText)
+                        .font(.system(size: 17))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Text(hhmm(msg.date))
-                    .font(.caption2)
+                    .font(.system(size: 11))
                     .foregroundStyle(mine ? TG.outgoingText.opacity(0.55) : TG.dateText)
                 if mine { ReadTicks(read: msg.id <= readUpTo) }
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 7)
+        .padding(.horizontal, 12).padding(.vertical, 6)
         .background {
             if mine { bubbleShape.fill(LinearGradient(colors: TG.outgoingFill,
                                                       startPoint: .top, endPoint: .bottom)) }

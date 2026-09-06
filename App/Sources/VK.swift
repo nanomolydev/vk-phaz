@@ -163,6 +163,7 @@ struct ConvItem: Decodable { let conversation: Conv; let last_message: Msg? }
 struct Conv: Decodable {
     let peer: Peer
     let unread_count: Int?
+    let pinned_message: Msg?
     let chat_settings: ChatSettings?
     let push_settings: PushSettings?
     struct PushSettings: Decodable {
@@ -639,5 +640,15 @@ extension VK {
             ["peer_id": String(toPeer),
              "random_id": String(Int32.random(in: 1...Int32.max)),
              "forward": json])
+    }
+}
+
+extension VK {
+    /// The conversation's pinned message, if any.
+    func pinnedMessage(peerId: Int) async throws -> Msg? {
+        struct Resp: Decodable { @Lossy var items: [ConvItem] }
+        let r: Resp = try await call("messages.getConversationsById",
+            ["peer_ids": String(peerId), "extended": "0"])
+        return r.items.first?.conversation.pinned_message
     }
 }
