@@ -18,15 +18,26 @@ jobs:
           sysctl -n hw.ncpu hw.memsize
           ls -d /Applications/Xcode*.app
 
+      # Bazel's cache is what makes a second run bearable — same trick that took
+      # our own build from 11 minutes to one.
+      - name: Cache Bazel
+        uses: actions/cache@v4
+        with:
+          path: ~/tg-bazel-cache
+          key: tgbazel-${{ runner.os }}-xc262-${{ github.run_number }}
+          restore-keys: |
+            tgbazel-${{ runner.os }}-xc262-
+
       - name: Clone Telegram-iOS
         run: |
           time git clone --depth 1 https://github.com/TelegramMessenger/Telegram-iOS.git tg
           du -sh tg
 
-      - name: Select Xcode 26
+      # They pin the toolchain: versions.json says 26.2 and the build refuses
+      # anything else, so pick that exact one rather than the newest.
+      - name: Select Xcode 26.2
         run: |
-          XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
-          sudo xcode-select -s "$XC/Contents/Developer"
+          sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
           xcodebuild -version
 
       - name: Configuration
