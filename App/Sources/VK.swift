@@ -543,7 +543,7 @@ struct VK {
 
 // MARK: - Wall
 
-struct WallPost: Decodable, Identifiable, Codable {
+struct WallPost: Codable, Identifiable {
     let id: Int
     let date: Int
     let text: String
@@ -555,6 +555,7 @@ struct WallPost: Decodable, Identifiable, Codable {
     var copy_history: [WallPost]?
 
     struct Count: Codable { let count: Int }
+
 
     enum K: String, CodingKey {
         case id, date, text, likes, comments, reposts, views, attachments, copy_history
@@ -572,6 +573,19 @@ struct WallPost: Decodable, Identifiable, Codable {
         views = try? c.decodeIfPresent(Count.self, forKey: .views)
         _attachments = try c.decode(Lossy<Attachment>.self, forKey: .attachments)
         copy_history = try c.decodeIfPresent(Lossy<WallPost>.self, forKey: .copy_history)?.wrappedValue
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: K.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(date, forKey: .date)
+        try c.encode(text, forKey: .text)
+        try c.encodeIfPresent(likes, forKey: .likes)
+        try c.encodeIfPresent(comments, forKey: .comments)
+        try c.encodeIfPresent(reposts, forKey: .reposts)
+        try c.encodeIfPresent(views, forKey: .views)
+        try c.encode(attachments, forKey: .attachments)
+        try c.encodeIfPresent(copy_history, forKey: .copy_history)
     }
 
     /// Reposts carry their body in copy_history — show that when the post itself is empty.

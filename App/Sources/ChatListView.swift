@@ -62,6 +62,8 @@ struct ChatListView: View {
                     NavigationLink(value: row) { rowView(row) }
                         .id(row.peerId)
                         .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                         .swipeActions(edge: .leading) {
                             Button {
                                 Pins.toggle(row.peerId); pinsTick += 1
@@ -164,22 +166,42 @@ struct ChatListView: View {
         .padding(.horizontal, 12)
     }
 
+    // Telegram-shaped row: 60pt avatar, name and a two-line preview, time and
+    // badge stacked on the trailing edge, separator inset past the avatar.
     private func rowView(_ row: ChatRow) -> some View {
-        HStack(spacing: 12) {
-            AvatarView(url: row.avatar, name: row.title, id: row.peerId, online: row.online)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(row.title).font(.body.weight(.semibold)).lineLimit(1)
-                Text(row.subtitle).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(shortTime(row.date)).font(.caption).foregroundStyle(.secondary)
-                if Pins.has(row.peerId) {
-                    Image(systemName: "pin.fill").font(.caption2).foregroundStyle(.secondary)
+        HStack(alignment: .top, spacing: 12) {
+            AvatarView(url: row.avatar, name: row.title, id: row.peerId,
+                       size: 60, online: row.online)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(row.title).font(.system(size: 17, weight: .semibold)).lineLimit(1)
+                    if Mutes.has(row.peerId) {
+                        Image(systemName: "speaker.slash.fill")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 4)
+                    Text(shortTime(row.date))
+                        .font(.system(size: 15)).foregroundStyle(.secondary)
+                }
+                HStack(alignment: .top, spacing: 6) {
+                    Text(row.subtitle)
+                        .font(.system(size: 15)).foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 4)
+                    if Pins.has(row.peerId) {
+                        Image(systemName: "pin.fill")
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(45))
+                    }
                 }
             }
+            .padding(.top, 2)
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 6)
+        .overlay(alignment: .bottomLeading) {
+            Divider().padding(.leading, 72)
+        }
     }
 
     private func load() async {

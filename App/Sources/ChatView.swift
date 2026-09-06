@@ -99,6 +99,15 @@ struct ChatView: View {
         return lastSeenText(online: p.online == 1, ts: p.last_seen?.time)
     }
 
+    /// True when the next message comes from a different sender or a new day.
+    private func isLastOfRun(_ cm: ChatMessage) -> Bool {
+        guard let i = messages.firstIndex(where: { $0.id == cm.id }),
+              i + 1 < messages.count else { return true }
+        let next = messages[i + 1]
+        return next.msg.from_id != cm.msg.from_id
+            || dayLabel(next.msg.date) != dayLabel(cm.msg.date)
+    }
+
     private var timeline: [(cm: ChatMessage, day: String?)] {
         var out: [(ChatMessage, String?)] = []
         var last = ""
@@ -248,11 +257,12 @@ struct ChatView: View {
     private var messageList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 3) {
+                LazyVStack(spacing: 2) {
                     ForEach(timeline, id: \.cm.id) { pair in
                         if let day = pair.day { dayChip(day) }
                         MessageRow(cm: pair.cm, mine: pair.cm.msg.from_id == ownId,
                                    isChat: isChat, readUpTo: outRead,
+                                   tailed: isLastOfRun(pair.cm),
                                    highlighted: highlightId == pair.cm.id,
                                    overrideText: secretText[pair.cm.id],
                                    onOpenImage: { viewerURL = IdURL(url: $0) })
@@ -695,16 +705,21 @@ struct MessageRow: View {
     var readUpTo: Int = 0
     var highlighted: Bool = false
     var overrideText: String? = nil
+    /// Last message of a run from the same sender — only that one gets a tail.
+    var tailed: Bool = true
     var onOpenImage: (URL) -> Void = { _ in }
     private var msg: Msg { cm.msg }
     private var shownText: String { overrideText ?? msg.text }
 
     private var bubbleShape: UnevenRoundedRectangle {
-        UnevenRoundedRectangle(cornerRadii: .init(
-            topLeading: 18,
-            bottomLeading: mine ? 18 : 5,
-            bottomTrailing: mine ? 5 : 18,
-            topTrailing: 18))
+        // Telegram: 17pt all round, tail corner tightened to 6 only on the last
+        // bubble of a run so grouped messages read as one block.
+        let tail: CGFloat = tailed ? 6 : 17
+        return UnevenRoundedRectangle(cornerRadii: .init(
+            topLeading: 17,
+            bottomLeading: mine ? 17 : tail,
+            bottomTrailing: mine ? tail : 17,
+            topTrailing: 17))
     }
 
     var body: some View {
@@ -712,7 +727,11 @@ struct MessageRow: View {
             if mine {
                 Spacer(minLength: 48)
             } else if isChat {
-                AvatarView(url: cm.senderAvatar, name: cm.senderName, id: msg.from_id, size: 28)
+                if tailed {
+                    AvatarView(url: cm.senderAvatar, name: cm.senderName, id: msg.from_id, size: 28)
+                } else {
+                    Color.clear.frame(width: 28, height: 1)
+                }
             }
             VStack(alignment: mine ? .trailing : .leading, spacing: 2) {
                 content
