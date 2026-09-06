@@ -624,3 +624,20 @@ extension VK {
         }
     }
 }
+
+// MARK: - Forwarding
+
+extension VK {
+    /// Forward messages into another conversation. VK wants conversation_message_ids
+    /// plus the source peer, passed as a JSON blob in `forward`.
+    func forward(toPeer: Int, fromPeer: Int, cmids: [Int]) async throws {
+        let payload: [String: Any] = ["peer_id": fromPeer,
+                                      "conversation_message_ids": cmids,
+                                      "is_reply": 0]
+        let json = String(data: try JSONSerialization.data(withJSONObject: payload), encoding: .utf8) ?? ""
+        let _: Int = try await call("messages.send",
+            ["peer_id": String(toPeer),
+             "random_id": String(Int32.random(in: 1...Int32.max)),
+             "forward": json])
+    }
+}

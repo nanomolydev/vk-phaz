@@ -46,6 +46,9 @@ struct ChatView: View {
     @State private var atBottom = true
     @State private var didFirstScroll = false
     @State private var muteTick = 0
+    @State private var selecting = false
+    @State private var picked: Set<Int> = []          // conversation_message_ids
+    @State private var forwardTarget = false
     @FocusState private var inputFocused: Bool
     @State private var selected: ChatMessage?
     @State private var pending: [PendingAttachment] = []
@@ -124,7 +127,11 @@ struct ChatView: View {
             WallpaperBackground(peerId: peerId, refresh: wpRefresh)
             messageList
                 .safeAreaInset(edge: .top) { if searchMode { searchBar } }
-                .safeAreaInset(edge: .bottom) { if searchMode { searchNavBar } else { bottomBar } }
+                .safeAreaInset(edge: .bottom) {
+                    if searchMode { searchNavBar }
+                    else if selecting { selectionBar }
+                    else { bottomBar }
+                }
         }
         .navigationBarTitleDisplayMode(.inline)
         // .hidden, not a material: SwiftUI's own bars ignore the UIKit
@@ -206,12 +213,25 @@ struct ChatView: View {
                 onRemoveReaction: { Task { await removeReaction(cm) } },
                 onReply: { replyingTo = cm },
                 onEdit: { editingTo = cm; replyingTo = nil; draft = cm.msg.text },
+                onForward: {
+                    if let cmid = cm.msg.conversation_message_id { picked = [cmid] }
+                    forwardTarget = true
+                },
+                onSelect: {
+                    selecting = true
+                    if let cmid = cm.msg.conversation_message_id { picked = [cmid] }
+                },
                 onCopy: { UIPasteboard.general.string = cm.msg.text },
                 onPin: { Task { await pin(cm) } },
                 onDeleteForMe: { Task { await delete(cm, forAll: false) } },
                 onDeleteForAll: { Task { await delete(cm, forAll: true) } },
                 onDismiss: { selected = nil })
             .presentationBackground(.clear)
+        }
+        .sheet(isPresented: $forwardTarget) {
+            ForwardPicker(ownId: ownId) { row in
+                Task { await forward(to: row) }
+            }
         }
         .sheet(isPresented: $showProfile) {
             NavigationStack { ProfileView(vk: vk, userId: peerId, ownId: ownId) }
@@ -267,7 +287,20 @@ struct ChatView: View {
                                    tailed: isLastOfRun(pair.cm),
                                    onOpenImage: { viewerURL = IdURL(url: $0) })
                             .id(pair.cm.id)
-                            .onLongPressGesture { selected = pair.cm }
+                            .overlay(alignment: .leading) {
+                                if selecting, let cmid = pair.cm.msg.conversation_message_id {
+                                    Image(systemName: picked.contains(cmid)
+                                          ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(picked.contains(cmid) ? TG.accent : TG.dateText)
+                                        .padding(.leading, 6)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                guard selecting, let cmid = pair.cm.msg.conversation_message_id else { return }
+                                if picked.contains(cmid) { picked.remove(cmid) } else { picked.insert(cmid) }
+                            }
+                            .onLongPressGesture { if !selecting { selected = pair.cm } }
                     }
                     if live.isTyping(peerId) {
                         HStack { TypingDots(); Spacer() }.padding(.horizontal, 12).id("typing")
@@ -494,6 +527,47 @@ struct ChatView: View {
         .padding(.horizontal, inputFocused ? 8 : 26)
         .padding(.bottom, 6)
         .animation(.snappy(duration: 0.22), value: inputFocused)
+    }
+
+    private var selectionBar: some View {
+        HStack(spacing: 18) {
+            Button("Отмена") { selecting = false; picked = [] }
+            Spacer()
+            Text(picked.isEmpty ? "Выберите" : "Выбрано: \(picked.count)")
+                .font(.subheadline).foregroundStyle(TG.dateText)
+            Spacer()
+            Button { forwardTarget = true } label: {
+                Image(systemName: "arrowshape.turn.up.right.fill")
+            }
+            .disabled(picked.isEmpty)
+            Button(role: .destructive) {
+                Task { await deletePicked() }
+            } label: { Image(systemName: "trash") }
+            .disabled(picked.isEmpty)
+        }
+        .padding(.horizontal, 18).padding(.vertical, 12)
+        .background(.bar)
+    }
+
+    private func forward(to row: ChatRow) async {
+        let cmids = Array(picked)
+        guard !cmids.isEmpty else { return }
+        do {
+            try await vk.forward(toPeer: row.peerId, fromPeer: peerId, cmids: cmids)
+            selecting = false; picked = []
+        } catch let e as VKError { error = e.error_msg }
+        catch { self.error = error.localizedDescription }
+    }
+
+    private func deletePicked() async {
+        let cmids = Array(picked)
+        guard !cmids.isEmpty else { return }
+        do {
+            try await vk.deleteMessages(peerId: peerId, cmids: cmids, forAll: false)
+            selecting = false; picked = []
+            await load()
+        } catch let e as VKError { error = e.error_msg }
+        catch { self.error = error.localizedDescription }
     }
 
     private func replyBanner(_ reply: ChatMessage) -> some View {

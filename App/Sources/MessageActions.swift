@@ -11,6 +11,8 @@ struct MessageActionsOverlay: View {
     let onRemoveReaction: () -> Void
     let onReply: () -> Void
     let onEdit: () -> Void
+    let onForward: () -> Void
+    let onSelect: () -> Void
     let onCopy: () -> Void
     let onPin: () -> Void
     let onDeleteForMe: () -> Void
@@ -62,6 +64,10 @@ struct MessageActionsOverlay: View {
                 Divider()
                 row("Редактировать", "pencil", action: onEdit)
             }
+            Divider()
+            row("Переслать", "arrowshape.turn.up.right", action: onForward)
+            Divider()
+            row("Выбрать", "checkmark.circle", action: onSelect)
             Divider()
             row("Копировать", "doc.on.doc", action: onCopy)
             Divider()
