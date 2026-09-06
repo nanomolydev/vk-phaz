@@ -71,7 +71,7 @@ jobs:
             --cacheDir="$HOME/tg-bazel-cache" \
             build \
             --configurationPath=/tmp/cfg.json \
-            --xcodeManagedCodesigning \
+            --codesigningInformationPath=build-system/fake-codesigning \
             --buildNumber=1 \
             --configuration=debug_sim_arm64 2>&1 | tail -120
 
