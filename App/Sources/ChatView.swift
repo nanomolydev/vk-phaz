@@ -799,7 +799,7 @@ struct MessageRow: View {
         .padding(.horizontal, 12).padding(.vertical, 7)
         .background {
             if mine { bubbleShape.fill(Color.accentColor.gradient) }
-            else { bubbleShape.fill(.ultraThinMaterial) }
+            else { bubbleShape.fill(Color(.secondarySystemBackground)) }
         }
         .foregroundStyle(mine ? .white : .primary)
     }

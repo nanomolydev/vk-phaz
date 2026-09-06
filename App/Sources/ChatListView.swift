@@ -94,7 +94,10 @@ struct ChatListView: View {
                 }
                 .padding(.top, 4)
                 .padding(.bottom, 8)
-                .background(.bar)
+                .background(Color(.systemBackground))
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(Color(.separator).opacity(0.35)).frame(height: 0.5)
+                }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -164,7 +167,7 @@ struct ChatListView: View {
         }
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity)
-        .background(.regularMaterial, in: Capsule())
+        .background(Color(.secondarySystemFill), in: RoundedRectangle(cornerRadius: 10))
         .padding(.horizontal, 12)
     }
 
