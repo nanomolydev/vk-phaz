@@ -171,17 +171,18 @@ struct ChatListView: View {
         .padding(.horizontal, 12)
     }
 
-    // Constant-height row: a 54pt avatar centred against a two-line text block.
-    // Top alignment made the avatar hang below the text, so its online dot cut
-    // through the separator, and a two-line preview made rows uneven.
+    // Geometry taken from ChatListItem.swift in Telegram-iOS: 60pt avatar,
+    // 16pt left edge inset + 8pt gap (so text and the separator start at 84),
+    // semibold 16 title, regular 15 preview, regular 14 date, avatar centred
+    // in the row.
     private func rowView(_ row: ChatRow) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             AvatarView(url: row.avatar, name: row.title, id: row.peerId,
-                       size: 54, online: row.online)
+                       size: 60, online: row.online)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 4) {
                     Text(row.title)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(TG.title)
                         .lineLimit(1)
                     if Mutes.has(row.peerId) {
@@ -190,7 +191,7 @@ struct ChatListView: View {
                     }
                     Spacer(minLength: 4)
                     Text(shortTime(row.date))
-                        .font(.system(size: 15)).foregroundStyle(TG.dateText)
+                        .font(.system(size: 14)).foregroundStyle(TG.dateText)
                 }
                 HStack(spacing: 6) {
                     Text(row.subtitle)
@@ -213,11 +214,11 @@ struct ChatListView: View {
                 }
             }
         }
-        .frame(height: 66)
+        .frame(height: 76)
         .overlay(alignment: .bottom) {
             Rectangle().fill(TG.separator)
                 .frame(height: 0.5)
-                .padding(.leading, 66)
+                .padding(.leading, 68)
         }
     }
 
