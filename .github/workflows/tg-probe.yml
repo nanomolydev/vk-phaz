@@ -43,14 +43,15 @@ jobs:
       - name: Configuration
         working-directory: tg
         run: |
-          # Dummy credentials: we only care whether it compiles, not whether it
-          # can reach Telegram's servers.
+          # Bundle and team must match the bundled fake profiles
+          # (ph.telegra.Telegraph / C67CF9S4VU) or Bazel can't resolve them.
+          # Credentials are dummies: only compilation matters here.
           cat > /tmp/cfg.json <<EOF
           {
-            "bundle_id": "org.vkphazprobe.Telegram",
+            "bundle_id": "ph.telegra.Telegraph",
             "api_id": "1",
             "api_hash": "0123456789abcdef0123456789abcdef",
-            "team_id": "0000000000",
+            "team_id": "C67CF9S4VU",
             "app_center_id": "0",
             "is_internal_build": "true",
             "is_appstore_build": "false",
