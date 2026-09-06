@@ -30,7 +30,7 @@ jobs:
 
       - name: Clone Telegram-iOS
         run: |
-          time git clone --depth 1 https://github.com/TelegramMessenger/Telegram-iOS.git tg
+          time git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/TelegramMessenger/Telegram-iOS.git tg
           du -sh tg
 
       # They pin the toolchain: versions.json says 26.2 and the build refuses
