@@ -1,14 +1,36 @@
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     let vk: VK
     @EnvironmentObject var store: AccountStore
     @StateObject private var updater = Updater.shared
     @State private var showAdd = false
+    @State private var me: Profile?
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    NavigationLink {
+                        ProfileView(vk: vk, userId: store.activeId ?? 0, ownId: store.activeId ?? 0)
+                    } label: {
+                        HStack(spacing: 14) {
+                            AvatarView(url: me?.avatar ?? store.active?.photo.flatMap(URL.init(string:)),
+                                       name: me?.fullName ?? store.active?.name ?? "",
+                                       id: store.activeId ?? 0, size: 62)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(me?.fullName ?? store.active?.name ?? "")
+                                    .font(.title3.weight(.semibold))
+                                if let s = me?.screen_name {
+                                    Text("@\(s)").font(.subheadline).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 6)
+                    }
+                }
+
                 Section("Аккаунты") {
                     ForEach(store.accounts) { acc in
                         Button { store.switchTo(acc.id) } label: {
@@ -30,12 +52,6 @@ struct SettingsView: View {
                     Button { showAdd = true } label: { Label("Добавить аккаунт", systemImage: "plus") }
                 }
 
-                Section {
-                    NavigationLink {
-                        ProfileView(vk: vk, userId: store.activeId ?? 0, ownId: store.activeId ?? 0)
-                    } label: { Label("Мой профиль", systemImage: "person.crop.circle") }
-                }
-
                 Section("Настройки") {
                     NavigationLink { AppearanceSettings() } label: { row("Оформление", "paintbrush.fill", .pink) }
                     NavigationLink { WallpaperSettings() } label: { row("Обои чатов", "photo.fill", .teal) }
@@ -52,6 +68,17 @@ struct SettingsView: View {
                     }
                 }
 
+                if UIAccessibility.isReduceTransparencyEnabled {
+                    Section {
+                        Label {
+                            Text("Включено «Понижение прозрачности» — iOS заменяет все размытия сплошным цветом. Отключается в Настройках → Универсальный доступ → Дисплей и размер текста.")
+                                .font(.footnote)
+                        } icon: {
+                            Image(systemName: "eye.slash").foregroundStyle(.orange)
+                        }
+                    }
+                }
+
                 Section {
                     Text("TK — неофициальный клиент VK. Токены и данные хранятся только на этом устройстве.")
                         .font(.footnote).foregroundStyle(.secondary)
@@ -59,7 +86,10 @@ struct SettingsView: View {
             }
             .navigationTitle("Настройки")
             .sheet(isPresented: $showAdd) { LoginView { try await store.addAccount(token: $0) } }
-            .task { if !updater.checkedOnce { await updater.check() } }
+            .task {
+                if !updater.checkedOnce { await updater.check() }
+                if me == nil { me = try? await vk.user(id: nil) }
+            }
         }
     }
 
